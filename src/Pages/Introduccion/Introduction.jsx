@@ -58,16 +58,15 @@ export const Introduction = () => {
               {/* Practice Icon */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div
-                  className="w-20 h-20 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 sm:mb-3 transform transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
+                  className="w-20 h-20 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 sm:mb-3 "
                   style={{
-                    backgroundColor: "#5956FC",
                     backgroundImage:
-                      "linear-gradient(135deg, #5956FC 0%, #7A78FF 100%)",
+                      "linear-gradient(135deg, #b257fd 0%, #7A78FF 100%)",
                   }}
                 >
                   <Brain className="h-9 w-9 xs:h-6 xs:w-6 sm:h-7 sm:w-7 text-white" />
                 </div>
-                <span className="font-medium text-base xs:text-sm sm:text-base group-hover:text-indigo-700 transition-colors duration-300">
+                <span className="font-medium text-base xs:text-sm sm:text-base ">
                   Practica
                 </span>
               </div>
@@ -75,16 +74,15 @@ export const Introduction = () => {
               {/* Question Icon */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div
-                  className="w-20 h-20 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 sm:mb-3 transform transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
+                  className="w-20 h-20 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 sm:mb-3 "
                   style={{
-                    backgroundColor: "#5956FC",
                     backgroundImage:
-                      "linear-gradient(135deg, #5956FC 0%, #7A78FF 100%)",
+                      "linear-gradient(135deg, #b257fd 0%, #7A78FF 100%)",
                   }}
                 >
                   <MessageCircle className="h-9 w-9 xs:h-6 xs:w-6 sm:h-7 sm:w-7 text-white" />
                 </div>
-                <span className="font-medium text-base xs:text-sm sm:text-base group-hover:text-indigo-700 transition-colors duration-300">
+                <span className="font-medium text-base xs:text-sm sm:text-base ">
                   Pregunta
                 </span>
               </div>
@@ -92,16 +90,15 @@ export const Introduction = () => {
               {/* Progress Icon */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div
-                  className="w-20 h-20 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 sm:mb-3 transform transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
+                  className="w-20 h-20 xs:w-14 xs:h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 sm:mb-3 "
                   style={{
-                    backgroundColor: "#5956FC",
                     backgroundImage:
-                      "linear-gradient(135deg, #5956FC 0%, #7A78FF 100%)",
+                      "linear-gradient(135deg, #b257fd 0%, #7A78FF 100%)",
                   }}
                 >
                   <BarChart2 className="h-9 w-9 xs:h-6 xs:w-6 sm:h-7 sm:w-7 text-white" />
                 </div>
-                <span className="font-medium text-base xs:text-sm sm:text-base group-hover:text-indigo-700 transition-colors duration-300">
+                <span className="font-medium text-base xs:text-sm sm:text-base ">
                   Progresa
                 </span>
               </div>
