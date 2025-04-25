@@ -5,6 +5,7 @@ import { Introduction } from "../Pages/Introduccion/Introduction.jsx";
 import { Login } from "../Pages/Login/Login.jsx";
 import { Register } from "../Pages/Register/Register";
 import { Home } from "../Pages/Home/Home.jsx";
+import { ProtectedRoute } from "../components/ProtectedRoute";
 
 export const routes = createBrowserRouter([
   // 🔓 Rutas públicas (No requieren autenticación)
@@ -24,8 +25,13 @@ export const routes = createBrowserRouter([
     path: '/register',
     element: <Register/>
   },
+  // 🔒 Rutas protegidas (Requieren autenticación)
   {
     path: '/home',
-    element: <Home/>
+    element: (
+      <ProtectedRoute>
+        <Home/>
+      </ProtectedRoute>
+    )
   }
 ])

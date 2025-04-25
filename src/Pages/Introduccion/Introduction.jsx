@@ -1,4 +1,5 @@
 import Logo from '../../assets/images/logo.png'
+import { useNavigate } from 'react-router-dom';
 import {
   Brain,
   BookOpen,
@@ -10,6 +11,7 @@ import {
 export const Introduction = () => {
   // Color principal
   const primaryColor = "#5956FC";
+  const navigate = useNavigate();
 
   return (
     <div className="w-full min-h-screen relative">
@@ -108,6 +110,7 @@ export const Introduction = () => {
           {/* Botón CTA prominente y accesible - Much larger for mobile */}
           <div className="mx-auto sm:ml-3 mt-6 sm:mt-6 md:mt-15 w-full sm:w-50">
             <button
+              onClick={()=>navigate('/login')}
               className="w-full max-w-md py-4 sm:py-3 md:py-4 rounded-xl text-[#5956FC] font-medium text-base sm:text-base flex items-center justify-center border"
               style={{
                 boxShadow: `0 6px 16px rgba(89, 86, 252, 0.3)`,
