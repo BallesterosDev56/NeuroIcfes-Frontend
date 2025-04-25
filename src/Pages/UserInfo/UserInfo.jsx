@@ -36,13 +36,48 @@ const loadingMessages = [
 
 export const UserInfo = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, setUserProfile } = useAuth();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [messageIndex, setMessageIndex] = useState(0);
+
+  const handleAnswer = (answer) => {
+    const currentQuestion = questions[currentQuestionIndex];
+    setAnswers(prev => ({
+      ...prev,
+      [currentQuestion.field]: answer
+    }));
+
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+      
+      // Primero actualizamos el perfil del usuario
+      const updatedProfile = {
+        ...answers,
+        profileCompleted: true
+      };
+      await updateUserProfile(currentUser.uid, updatedProfile);
+      
+      // Actualizar el estado del perfil en el contexto de autenticación
+      setUserProfile(updatedProfile);
+      
+      // Mostrar el spinner y activar la redirección programada
+      setShowLoader(true);
+      
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setIsSubmitting(false);
+    }
+  };
 
   // Efecto para cambiar los mensajes del spinner cada segundo
   useEffect(() => {
@@ -68,37 +103,6 @@ export const UserInfo = () => {
       };
     }
   }, [showLoader, navigate]);
-
-  const handleAnswer = (answer) => {
-    const currentQuestion = questions[currentQuestionIndex];
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.field]: answer
-    }));
-
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-    }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      setIsSubmitting(true);
-      
-      // Primero actualizamos el perfil del usuario
-      await updateUserProfile(currentUser.uid, {
-        ...answers,
-        profileCompleted: true
-      });
-      
-      // Luego mostramos el spinner en lugar de redirigir inmediatamente
-      setShowLoader(true);
-      
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      setIsSubmitting(false);
-    }
-  };
 
   const currentQuestion = questions[currentQuestionIndex];
 

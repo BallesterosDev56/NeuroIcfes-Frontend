@@ -52,8 +52,8 @@ export const Register = () => {
         profileCompleted: false // Explicitly set to false for new users
       });
       
-      // The ProfileGuard will handle the redirection based on profileCompleted status
-      navigate('/home');
+      // Redirect to user-info for new users
+      navigate('/user-info');
     } catch (error) {
       console.error('Google sign in error:', error);
       setAuthError('Error al registrarse con Google. Intenta de nuevo.');

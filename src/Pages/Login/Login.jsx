@@ -47,10 +47,15 @@ export const Login = () => {
           provider: 'google',
           profileCompleted: false // Explicitly set to false for new users
         });
+        // Redirect to user-info for new users
+        navigate('/user-info');
+      } else if (!existingProfile.profileCompleted) {
+        // Redirect to user-info if profile exists but is not completed
+        navigate('/user-info');
+      } else {
+        // Redirect to home if profile exists and is completed
+        navigate('/home');
       }
-      
-      // The ProfileGuard will handle the redirection based on profileCompleted status
-      navigate('/home');
     } catch (error) {
       console.error('Google sign in error:', error);
       setAuthError('Error al iniciar sesión con Google. Intenta de nuevo.');

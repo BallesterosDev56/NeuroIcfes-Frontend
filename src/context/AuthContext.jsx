@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userProfile,
+    setUserProfile,
     loading,
     requiresProfile
   };
