@@ -43,14 +43,16 @@ export const Register = () => {
       setAuthError('');
       const result = await signInWithPopup(auth, googleProvider);
       
-      // Create user profile in Firestore
+      // Create user profile in Firestore with profileCompleted set to false
       await createUserProfile(result.user.uid, {
         displayName: result.user.displayName,
         email: result.user.email,
         photoURL: result.user.photoURL,
-        provider: 'google'
+        provider: 'google',
+        profileCompleted: false // Explicitly set to false for new users
       });
       
+      // The ProfileGuard will handle the redirection based on profileCompleted status
       navigate('/home');
     } catch (error) {
       console.error('Google sign in error:', error);
@@ -73,13 +75,15 @@ export const Register = () => {
         displayName: data.fullName,
       });
 
-      // Create user profile in Firestore
+      // Create user profile in Firestore with profileCompleted set to false
       await createUserProfile(userCredential.user.uid, {
         displayName: data.fullName,
         email: data.email,
-        provider: 'email'
+        provider: 'email',
+        profileCompleted: false // Explicitly set to false for new users
       });
       
+      // The ProfileGuard will handle the redirection based on profileCompleted status
       navigate('/home');
     } catch (error) {
       console.error('Registration error:', error);

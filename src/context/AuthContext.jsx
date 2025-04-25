@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [requiresProfile, setRequiresProfile] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -21,11 +22,15 @@ export const AuthProvider = ({ children }) => {
           // Get user profile from Firestore
           const profile = await getUserProfile(user.uid);
           setUserProfile(profile);
+          
+          // Set whether profile completion is required
+          setRequiresProfile(profile && !profile.profileCompleted);
         } catch (error) {
           console.error('Error fetching user profile:', error);
         }
       } else {
         setUserProfile(null);
+        setRequiresProfile(false);
       }
       setCurrentUser(user);
       setLoading(false);
@@ -37,7 +42,8 @@ export const AuthProvider = ({ children }) => {
   const value = {
     currentUser,
     userProfile,
-    loading
+    loading,
+    requiresProfile
   };
 
   return (

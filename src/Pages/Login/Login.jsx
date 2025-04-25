@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase/auth';
+import { createUserProfile, getUserProfile } from '../../services/userService';
 import { FaEye, FaEyeSlash, FaGoogle } from 'react-icons/fa';
 import { BrainCircuit, BookOpen, Mail, Lock } from 'lucide-react';
 
@@ -32,7 +33,23 @@ export const Login = () => {
     try {
       setIsLoading(true);
       setAuthError('');
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      // Check if user profile exists
+      const existingProfile = await getUserProfile(result.user.uid);
+      
+      // If profile doesn't exist, create it with profileCompleted set to false
+      if (!existingProfile) {
+        await createUserProfile(result.user.uid, {
+          displayName: result.user.displayName,
+          email: result.user.email,
+          photoURL: result.user.photoURL,
+          provider: 'google',
+          profileCompleted: false // Explicitly set to false for new users
+        });
+      }
+      
+      // The ProfileGuard will handle the redirection based on profileCompleted status
       navigate('/home');
     } catch (error) {
       console.error('Google sign in error:', error);
