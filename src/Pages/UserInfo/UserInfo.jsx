@@ -42,7 +42,7 @@ export const UserInfo = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoader, setShowLoader] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
-  const [messageIndex, setMessageIndex] = useState(0);
+  const [updatedProfile, setUpdatedProfile] = useState(null);
 
   const handleAnswer = (answer) => {
     const currentQuestion = questions[currentQuestionIndex];
@@ -66,9 +66,8 @@ export const UserInfo = () => {
         profileCompleted: true
       };
       await updateUserProfile(currentUser.uid, updatedProfile);
-      
-      // Actualizar el estado del perfil en el contexto de autenticación
-      setUserProfile(updatedProfile);
+
+      setUpdatedProfile(updatedProfile);
       
       // Mostrar el spinner y activar la redirección programada
       setShowLoader(true);
@@ -94,7 +93,8 @@ export const UserInfo = () => {
       
       // Timer para redirigir después de 3 segundos
       const redirectTimer = setTimeout(() => {
-        navigate('/home');
+        // Actualizar el estado del perfil en el contexto de autenticación para que UserInfoRoute lo redirija
+        setUserProfile(updatedProfile);
       }, 3000);
       
       return () => {
