@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from '../Pages/firebase/auth';
+import { auth } from '../firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getUserProfile } from '../services/userService';
 
@@ -23,6 +23,16 @@ export const AuthProvider = ({ children }) => {
           const profile = await getUserProfile(user.uid);
           setUserProfile(profile);
           
+          // Store user data in sessionStorage
+          const userData = {
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            profile: profile
+          };
+          sessionStorage.setItem('userData', JSON.stringify(userData));
+          
           // Set whether profile completion is required
           setRequiresProfile(profile && !profile.profileCompleted);
         } catch (error) {
@@ -31,6 +41,8 @@ export const AuthProvider = ({ children }) => {
       } else {
         setUserProfile(null);
         setRequiresProfile(false);
+        // Clear sessionStorage when user logs out
+        sessionStorage.removeItem('userData');
       }
       setCurrentUser(user);
       setLoading(false);

@@ -43,6 +43,7 @@ export const UserInfo = () => {
   const [showLoader, setShowLoader] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [updatedProfile, setUpdatedProfile] = useState(null);
+  const [selectedOption, setSelectedOption] = useState(null);
 
   const handleAnswer = (answer) => {
     const currentQuestion = questions[currentQuestionIndex];
@@ -50,9 +51,11 @@ export const UserInfo = () => {
       ...prev,
       [currentQuestion.field]: answer
     }));
+    setSelectedOption(answer);
 
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedOption(null);
     }
   };
 
@@ -189,7 +192,11 @@ export const UserInfo = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleAnswer(option)}
-                    className="w-full py-3 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-medium transition-colors"
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+                      currentQuestionIndex === 2 && selectedOption === option
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                    }`}
                   >
                     {option}
                   </motion.button>

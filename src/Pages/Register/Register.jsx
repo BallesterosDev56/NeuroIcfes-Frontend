@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, updateProfile } from 'firebase/auth';
-import { auth } from '../firebase/auth';
+import { auth } from '../../firebase/auth';
 import { createUserProfile } from '../../services/userService';
 import { FaEye, FaEyeSlash, FaGoogle } from 'react-icons/fa';
 import { BrainCircuit, BookCheck, User, Mail, Lock, CheckCircle } from 'lucide-react';

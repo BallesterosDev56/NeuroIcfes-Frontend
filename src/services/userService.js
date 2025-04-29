@@ -1,4 +1,4 @@
-import { db } from '../Pages/firebase/auth';
+import { db } from '../firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 export const createUserProfile = async (userId, userData) => {
