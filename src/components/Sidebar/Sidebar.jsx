@@ -90,7 +90,7 @@ const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) => {
                 <GraduationCap size={20} className="text-white" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-900">{userData.profile.displayName}</p>
+                <p className="text-sm font-medium text-gray-900">{userData.displayName}</p>
                 <p className="text-xs text-gray-500">Estudiante</p>
               </div>
             </div>
