@@ -1,17 +1,27 @@
-import { db } from '../firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const createUserProfile = async (userId, userData) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, {
-      ...userData,
-      createdAt: new Date(),
-      lastLogin: new Date(),
-      role: 'student',
-      isActive: true
+    const response = await fetch(`${API_URL}/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        uid: userId,
+        ...userData,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        role: 'student',
+        isActive: true
+      }),
     });
-    return true;
+
+    if (!response.ok) {
+      throw new Error('Error creating user profile');
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Error creating user profile:', error);
     throw error;
@@ -20,13 +30,16 @@ export const createUserProfile = async (userId, userData) => {
 
 export const getUserProfile = async (userId) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const response = await fetch(`${API_URL}/users/${userId}`);
     
-    if (userSnap.exists()) {
-      return userSnap.data();
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error('Error getting user profile');
     }
-    return null;
+
+    return await response.json();
   } catch (error) {
     console.error('Error getting user profile:', error);
     throw error;
@@ -35,12 +48,22 @@ export const getUserProfile = async (userId) => {
 
 export const updateUserProfile = async (userId, userData) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      ...userData,
-      updatedAt: new Date()
+    const response = await fetch(`${API_URL}/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...userData,
+        updatedAt: new Date()
+      }),
     });
-    return true;
+
+    if (!response.ok) {
+      throw new Error('Error updating user profile');
+    }
+
+    return await response.json();
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;

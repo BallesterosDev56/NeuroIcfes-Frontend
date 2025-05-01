@@ -1,6 +1,7 @@
+import React from 'react';
 
 // components/ui/ErrorMessage.jsx
-import React from 'react';
+
 
 export const ErrorMessage = ({ message }) => {
   return (

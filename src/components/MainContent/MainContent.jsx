@@ -1,4 +1,4 @@
-import React from 'react';
+
 import PracticeSection from './PracticeSection';
 import PreferencesSection from './PreferencesSection';
 import SettingsSection from './SettingsSection';

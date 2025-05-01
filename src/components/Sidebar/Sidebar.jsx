@@ -17,6 +17,7 @@ import {
 
 const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) => {
   const userData = JSON.parse(sessionStorage.getItem('userData'));
+  console.log(userData)
   const menuItems = [
     { id: 'practice', label: 'Práctica', icon: BookOpen },
     //{ id: 'progress', label: 'Progreso', icon: BarChart2 },

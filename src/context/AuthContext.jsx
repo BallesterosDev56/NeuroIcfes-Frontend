@@ -19,24 +19,19 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // Get user profile from Firestore
+          // Get user profile from backend
           const profile = await getUserProfile(user.uid);
           setUserProfile(profile);
           
           // Store user data in sessionStorage
-          const userData = {
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            profile: profile
-          };
-          sessionStorage.setItem('userData', JSON.stringify(userData));
+          sessionStorage.setItem('userData', JSON.stringify(profile));
           
           // Set whether profile completion is required
-          setRequiresProfile(profile && !profile.profileCompleted);
+          setRequiresProfile(!profile || !profile.profileCompleted);
         } catch (error) {
           console.error('Error fetching user profile:', error);
+          // Si hay un error al obtener el perfil, asumimos que necesita completarlo
+          setRequiresProfile(true);
         }
       } else {
         setUserProfile(null);
@@ -51,10 +46,29 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   }, []);
 
+  // Función para actualizar el perfil del usuario
+  const updateUserProfile = async (profileData) => {
+    try {
+      const updatedProfile = await getUserProfile(currentUser.uid);
+      setUserProfile(updatedProfile);
+      setRequiresProfile(!updatedProfile || !updatedProfile.profileCompleted);
+      
+      // Actualizar también en sessionStorage
+      const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
+      userData.profile = updatedProfile;
+      sessionStorage.setItem('userData', JSON.stringify(userData));
+      
+      return updatedProfile;
+    } catch (error) {
+      console.error('Error updating user profile in context:', error);
+      throw error;
+    }
+  };
+
   const value = {
     currentUser,
     userProfile,
-    setUserProfile,
+    setUserProfile: updateUserProfile,
     loading,
     requiresProfile
   };

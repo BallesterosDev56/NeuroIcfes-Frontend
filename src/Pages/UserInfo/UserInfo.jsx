@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { updateUserProfile } from '../../services/userService';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BrainCircuit, Loader2 } from 'lucide-react';
+import { BrainCircuit, Loader2, ChevronRight } from 'lucide-react';
 
 const questions = [
   {
@@ -47,9 +47,16 @@ export const UserInfo = () => {
 
   const handleAnswer = (answer) => {
     const currentQuestion = questions[currentQuestionIndex];
+    let value = answer;
+
+    // Convertir "Sí" y "No" a booleanos para el campo hasExperience
+    if (currentQuestion.field === 'hasExperience') {
+      value = answer === 'Sí';
+    }
+
     setAnswers(prev => ({
       ...prev,
-      [currentQuestion.field]: answer
+      [currentQuestion.field]: value
     }));
     setSelectedOption(answer);
 
@@ -108,29 +115,43 @@ export const UserInfo = () => {
   }, [showLoader, navigate]);
 
   const currentQuestion = questions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
+        {/* Progress Bar */}
+        <div className="w-full bg-gray-200 rounded-full h-2.5">
+          <motion.div
+            className="bg-indigo-600 h-2.5 rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+
         <div className="text-center">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5 }}
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ duration: 0.8, type: "spring" }}
             className="flex justify-center mb-6"
           >
-            <img 
-              src={Bot} 
-              alt="Bot" 
-              className="w-32 h-32 object-contain"
-            />
+            <div className="relative">
+              <div className="absolute inset-0 bg-indigo-200 rounded-full blur-xl opacity-50"></div>
+              <img 
+                src={Bot} 
+                alt="Bot" 
+                className="w-32 h-32 object-contain relative z-10"
+              />
+            </div>
           </motion.div>
           
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-3xl font-bold text-gray-900 mb-2"
+            className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2"
           >
             ¡Completemos tu perfil!
           </motion.h1>
@@ -139,98 +160,81 @@ export const UserInfo = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="text-gray-600"
+            className="text-gray-600 text-lg"
           >
             Ayúdanos a conocerte mejor para personalizar tu experiencia
           </motion.p>
         </div>
 
-        <AnimatePresence mode="wait">
-          {showLoader ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-xl shadow-lg p-8 space-y-6 flex flex-col items-center"
-            >
+        {showLoader ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center space-y-6 bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl"
+          >
+            <div className="relative">
+              <Loader2 className="animate-spin mx-auto h-16 w-16 text-indigo-600" />
+              <div className="absolute inset-0 bg-indigo-200 rounded-full blur-xl opacity-30"></div>
+            </div>
+            <p className="text-gray-700 text-lg font-medium">{loadingMessage}</p>
+          </motion.div>
+        ) : (
+          <div className="space-y-6">
+            <AnimatePresence mode="wait">
               <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                key={currentQuestionIndex}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl"
               >
-                <Loader2 size={48} className="text-indigo-600" />
+                <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+                  {currentQuestion.question}
+                </h2>
+                <div className="space-y-4">
+                  {currentQuestion.options.map((option) => (
+                    <motion.button
+                      key={option}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: currentQuestion.options.indexOf(option) * 0.1 }}
+                      onClick={() => handleAnswer(option)}
+                      className={`w-full p-4 text-left rounded-xl border-2 transition-all duration-300 flex items-center justify-between group ${
+                        selectedOption === option
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-md'
+                          : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50 hover:shadow-md'
+                      }`}
+                    >
+                      <span className="text-lg font-medium">{option}</span>
+                      <ChevronRight className={`w-5 h-5 transition-transform duration-300 ${
+                        selectedOption === option ? 'text-indigo-600 transform translate-x-1' : 'text-gray-400 group-hover:text-indigo-600'
+                      }`} />
+                    </motion.button>
+                  ))}
+                </div>
               </motion.div>
-              
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={loadingMessage}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.3 }}
-                  className="text-lg font-medium text-indigo-700 text-center"
-                >
-                  {loadingMessage}
-                </motion.p>
-              </AnimatePresence>
-            </motion.div>
-          ) : (
-            <motion.div
-              key={currentQuestionIndex}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-lg p-6 space-y-6"
-            >
-              <h2 className="text-xl font-semibold text-gray-900 text-center">
-                {currentQuestion.question}
-              </h2>
+            </AnimatePresence>
 
-              <div className="grid gap-4">
-                {currentQuestion.options.map((option) => (
-                  <motion.button
-                    key={option}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleAnswer(option)}
-                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                      currentQuestionIndex === 2 && selectedOption === option
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
-                    }`}
-                  >
-                    {option}
-                  </motion.button>
-                ))}
-              </div>
-
-              {currentQuestionIndex === questions.length - 1 && (
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Guardando...' : '¡Empecemos!'}
-                </motion.button>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {!showLoader && (
-          <div className="flex justify-center space-x-2">
-            {questions.map((_, index) => (
-              <div
-                key={index}
-                className={`w-2 h-2 rounded-full ${
-                  index === currentQuestionIndex
-                    ? 'bg-indigo-600'
-                    : 'bg-gray-300'
-                }`}
-              />
-            ))}
+            {currentQuestionIndex === questions.length - 1 && selectedOption && (
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="w-full py-4 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium hover:from-indigo-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <Loader2 className="animate-spin h-5 w-5" />
+                    <span>Guardando...</span>
+                  </div>
+                ) : (
+                  'Finalizar'
+                )}
+              </motion.button>
+            )}
           </div>
         )}
       </div>
