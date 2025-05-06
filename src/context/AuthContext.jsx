@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '../firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { getUserProfile } from '../services/userService';
+import { getFreshToken } from '../utils/tokenManager';
 
 const AuthContext = createContext();
 
@@ -19,6 +20,9 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
+          // Get fresh token on auth state change
+          await getFreshToken();
+          
           // Get user profile from backend
           const profile = await getUserProfile(user.uid);
           setUserProfile(profile);
@@ -41,6 +45,7 @@ export const AuthProvider = ({ children }) => {
         setRequiresProfile(false);
         // Clear sessionStorage when user logs out
         sessionStorage.removeItem('userData');
+        sessionStorage.removeItem('token');
       }
       setCurrentUser(user);
       setLoading(false);

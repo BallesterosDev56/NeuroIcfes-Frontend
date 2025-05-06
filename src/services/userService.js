@@ -1,68 +1,31 @@
+import axiosInstance from '../utils/axiosConfig';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-export const createUserProfile = async (userId, userData) => {
+export const createUserProfile = async (uid, userData) => {
   try {
-    const response = await fetch(`${API_URL}/users`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        uid: userId,
-        ...userData,
-        createdAt: new Date(),
-        lastLogin: new Date(),
-        role: 'student',
-        isActive: true
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error creating user profile');
-    }
-
-    return await response.json();
+    const response = await axiosInstance.post(`/users/${uid}`, userData);
+    return response.data;
   } catch (error) {
     console.error('Error creating user profile:', error);
     throw error;
   }
 };
 
-export const getUserProfile = async (userId) => {
+export const getUserProfile = async (uid) => {
   try {
-    const response = await fetch(`${API_URL}/users/${userId}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Error fetching user profile');
-    }
-
-    return await response.json();
+    const response = await axiosInstance.get(`/users/${uid}`);
+    return response.data;
   } catch (error) {
     console.error('Error fetching user profile:', error);
     throw error;
   }
 };
 
-export const updateUserProfile = async (userId, userData) => {
+export const updateUserProfile = async (uid, userData) => {
   try {
-    const response = await fetch(`${API_URL}/users/${userId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    });
-
-    if (!response.ok) {
-      throw new Error('Error updating user profile');
-    }
-
-    return await response.json();
+    const response = await axiosInstance.put(`/users/${uid}`, userData);
+    return response.data;
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
@@ -71,19 +34,8 @@ export const updateUserProfile = async (userId, userData) => {
 
 export const getAllUsers = async () => {
   try {
-    const response = await fetch(`${API_URL}/users`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${sessionStorage.getItem('token')}`
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Error fetching users');
-    }
-
-    return await response.json();
+    const response = await axiosInstance.get('/users');
+    return response.data;
   } catch (error) {
     console.error('Error fetching users:', error);
     throw error;
