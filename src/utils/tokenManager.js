@@ -35,4 +35,32 @@ export const shouldRefreshToken = () => {
     console.error('Error checking token expiration:', error);
     return true;
   }
+};
+
+// Function to ensure we have a valid token
+export const ensureValidToken = async () => {
+  if (shouldRefreshToken()) {
+    return await getFreshToken();
+  }
+  return sessionStorage.getItem('token');
+};
+
+// Function to handle token refresh and retry failed requests
+export const handleTokenRefresh = async (error, retryRequest) => {
+  if (error?.response?.status === 401 && error?.response?.data?.message?.includes('token has expired')) {
+    try {
+      // Get a fresh token
+      const newToken = await getFreshToken();
+      
+      // Retry the original request with the new token
+      if (retryRequest) {
+        return await retryRequest(newToken);
+      }
+    } catch (refreshError) {
+      console.error('Error refreshing token:', refreshError);
+      // If token refresh fails, redirect to login
+      window.location.href = '/login';
+    }
+  }
+  throw error;
 }; 

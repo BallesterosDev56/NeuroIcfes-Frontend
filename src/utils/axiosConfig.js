@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getFreshToken, shouldRefreshToken } from './tokenManager';
+import { getFreshToken, shouldRefreshToken, handleTokenRefresh } from './tokenManager';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -11,24 +11,16 @@ const axiosInstance = axios.create({
 // Request interceptor
 axiosInstance.interceptors.request.use(
   async (config) => {
-    // Check if token needs refresh
-    if (shouldRefreshToken()) {
-      try {
-        const newToken = await getFreshToken();
-        config.headers.Authorization = `Bearer ${newToken}`;
-      } catch (error) {
-        console.error('Error refreshing token:', error);
-        // If token refresh fails, try to use existing token
-        const existingToken = sessionStorage.getItem('token');
-        if (existingToken) {
-          config.headers.Authorization = `Bearer ${existingToken}`;
-        }
-      }
-    } else {
-      // Use existing token
-      const token = sessionStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+    try {
+      // Always check if token needs refresh before making a request
+      const token = await getFreshToken();
+      config.headers.Authorization = `Bearer ${token}`;
+    } catch (error) {
+      console.error('Error in request interceptor:', error);
+      // If we can't get a fresh token, try to use existing one
+      const existingToken = sessionStorage.getItem('token');
+      if (existingToken) {
+        config.headers.Authorization = `Bearer ${existingToken}`;
       }
     }
     return config;
@@ -44,24 +36,29 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If error is 401 and we haven't tried to refresh token yet
+    // Handle token expiration
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
-        // Try to refresh token
+        // Try to refresh token and retry request
         const newToken = await getFreshToken();
-        
-        // Update the failed request with new token
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        
-        // Retry the original request
         return axiosInstance(originalRequest);
       } catch (refreshError) {
-        // If token refresh fails, redirect to login
+        console.error('Token refresh failed:', refreshError);
+        // Clear session storage and redirect to login
+        sessionStorage.clear();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }
+    }
+
+    // Handle other errors
+    if (error.response?.status === 403) {
+      console.error('Access forbidden:', error);
+      // Optionally redirect to an unauthorized page
+      window.location.href = '/unauthorized';
     }
 
     return Promise.reject(error);

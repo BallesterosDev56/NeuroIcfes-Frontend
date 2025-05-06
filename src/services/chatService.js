@@ -5,7 +5,7 @@ class ChatService {
     try {
       const response = await fetch(`${API_URL}/chat/history`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
       
@@ -25,7 +25,7 @@ class ChatService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
         body: JSON.stringify({ questionId, message })
       });
@@ -44,7 +44,7 @@ class ChatService {
     try {
       const response = await fetch(`${API_URL}/chat/context/${questionId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
       

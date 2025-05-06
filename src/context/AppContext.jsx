@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback } from 'react
 import {questionService} from '../services/QuestionService';
 import ProgressService from '../services/ProgressService';
 import ChatService from '../services/ChatService';
+import OpenAIService from '../services/openaiService';
 
 const AppContext = createContext();
 
@@ -10,15 +11,23 @@ const initialState = {
   currentQuestion: null,
   progress: null,
   chatHistory: [],
+  openaiChat: {
+    messages: [],
+    isCorrect: false,
+    lastQuestion: null,
+    noQuestionsAvailable: false
+  },
   loading: {
     questions: false,
     progress: false,
-    chat: false
+    chat: false,
+    openai: false
   },
   error: {
     questions: null,
     progress: null,
-    chat: null
+    chat: null,
+    openai: null
   }
 };
 
@@ -105,6 +114,93 @@ function appReducer(state, action) {
         ...state,
         questions: state.questions.filter(q => q._id !== action.payload)
       };
+    case 'OPENAI_CHAT_START':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: true },
+        error: { ...state.error, openai: null },
+        openaiChat: {
+          ...state.openaiChat,
+          messages: [],
+          isCorrect: false,
+          noQuestionsAvailable: false
+        }
+      };
+    case 'OPENAI_CHAT_SUCCESS':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        openaiChat: {
+          ...state.openaiChat,
+          messages: action.payload.chatHistory || [],
+          lastQuestion: action.payload.question || null,
+          noQuestionsAvailable: action.payload.noQuestionsAvailable || false
+        },
+        currentQuestion: action.payload.question || state.currentQuestion
+      };
+    case 'OPENAI_CHAT_ERROR':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        error: { ...state.error, openai: action.payload }
+      };
+    case 'OPENAI_MESSAGE_START':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: true }
+      };
+    case 'OPENAI_MESSAGE_SUCCESS':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        openaiChat: {
+          ...state.openaiChat,
+          messages: action.payload.chatHistory || state.openaiChat.messages,
+          isCorrect: action.payload.isCorrect || false
+        }
+      };
+    case 'OPENAI_MESSAGE_ERROR':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        error: { ...state.error, openai: action.payload }
+      };
+    case 'OPENAI_NEXT_QUESTION_START':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: true },
+        error: { ...state.error, openai: null }
+      };
+    case 'OPENAI_NEXT_QUESTION_SUCCESS':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        openaiChat: {
+          ...state.openaiChat,
+          messages: [],
+          isCorrect: false,
+          lastQuestion: action.payload.question || null,
+          noQuestionsAvailable: action.payload.noQuestionsAvailable || false
+        },
+        currentQuestion: action.payload.question || state.currentQuestion
+      };
+    case 'OPENAI_NEXT_QUESTION_ERROR':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        error: { ...state.error, openai: action.payload }
+      };
+    case 'OPENAI_RESET_CHAT':
+      return {
+        ...state,
+        openaiChat: {
+          messages: [],
+          isCorrect: false,
+          lastQuestion: null,
+          noQuestionsAvailable: false
+        },
+        error: { ...state.error, openai: null }
+      };
     default:
       return state;
   }
@@ -118,8 +214,15 @@ export function AppProvider({ children }) {
     try {
       const questions = await questionService.getQuestions(subject, difficulty);
       dispatch({ type: 'FETCH_QUESTIONS_SUCCESS', payload: questions });
+      
+      if (questions && questions.length > 0) {
+        dispatch({ type: 'SET_CURRENT_QUESTION', payload: questions[0] });
+      }
+      
+      return questions;
     } catch (error) {
       dispatch({ type: 'FETCH_QUESTIONS_ERROR', payload: error.message });
+      throw error;
     }
   }, []);
 
@@ -128,8 +231,10 @@ export function AppProvider({ children }) {
     try {
       const progress = await ProgressService.getProgress();
       dispatch({ type: 'FETCH_PROGRESS_SUCCESS', payload: progress });
+      return progress;
     } catch (error) {
       dispatch({ type: 'FETCH_PROGRESS_ERROR', payload: error.message });
+      throw error;
     }
   }, []);
 
@@ -138,8 +243,10 @@ export function AppProvider({ children }) {
     try {
       const history = await ChatService.getChatHistory();
       dispatch({ type: 'FETCH_CHAT_HISTORY_SUCCESS', payload: history });
+      return history;
     } catch (error) {
       dispatch({ type: 'FETCH_CHAT_HISTORY_ERROR', payload: error.message });
+      throw error;
     }
   }, []);
 
@@ -186,6 +293,58 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  const startOpenAIChat = useCallback(async (subject, interests) => {
+    dispatch({ type: 'OPENAI_CHAT_START' });
+    try {
+      const response = await OpenAIService.startChat(subject, interests);
+      dispatch({ type: 'OPENAI_CHAT_SUCCESS', payload: response });
+      return response;
+    } catch (error) {
+      dispatch({ type: 'OPENAI_CHAT_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+  
+  const sendOpenAIMessage = useCallback(async (questionId, message, timeSpent) => {
+    dispatch({ type: 'OPENAI_MESSAGE_START' });
+    try {
+      const response = await OpenAIService.sendMessage(questionId, message, timeSpent);
+      dispatch({ type: 'OPENAI_MESSAGE_SUCCESS', payload: response });
+      return response;
+    } catch (error) {
+      dispatch({ type: 'OPENAI_MESSAGE_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+  
+  const checkOpenAIAnswer = useCallback(async (questionId, answer) => {
+    dispatch({ type: 'OPENAI_MESSAGE_START' });
+    try {
+      const response = await OpenAIService.checkAnswer(questionId, answer);
+      dispatch({ type: 'OPENAI_MESSAGE_SUCCESS', payload: response });
+      return response;
+    } catch (error) {
+      dispatch({ type: 'OPENAI_MESSAGE_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+  
+  const getNextOpenAIQuestion = useCallback(async (subject, difficulty) => {
+    dispatch({ type: 'OPENAI_NEXT_QUESTION_START' });
+    try {
+      const response = await OpenAIService.getNextQuestion(subject, difficulty);
+      dispatch({ type: 'OPENAI_NEXT_QUESTION_SUCCESS', payload: response });
+      return response;
+    } catch (error) {
+      dispatch({ type: 'OPENAI_NEXT_QUESTION_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+  
+  const resetOpenAIChat = useCallback(() => {
+    dispatch({ type: 'OPENAI_RESET_CHAT' });
+  }, []);
+
   const value = {
     ...state,
     fetchQuestions,
@@ -194,7 +353,12 @@ export function AppProvider({ children }) {
     sendChatMessage,
     createQuestion,
     updateQuestion,
-    deleteQuestion
+    deleteQuestion,
+    startOpenAIChat,
+    sendOpenAIMessage,
+    checkOpenAIAnswer,
+    getNextOpenAIQuestion,
+    resetOpenAIChat
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

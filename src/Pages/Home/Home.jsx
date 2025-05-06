@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Sidebar from '../../components/Sidebar/Sidebar';
+import {Sidebar} from '../../components/Sidebar/Sidebar';
 import MainContent from '../../components/MainContent/MainContent';
 
 export const Home = () => {

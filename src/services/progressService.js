@@ -5,7 +5,7 @@ class ProgressService {
     try {
       const response = await fetch(`${API_URL}/progress`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
       
@@ -23,7 +23,7 @@ class ProgressService {
     try {
       const response = await fetch(`${API_URL}/progress/${subject}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
       
@@ -41,7 +41,7 @@ class ProgressService {
     try {
       const response = await fetch(`${API_URL}/progress/learning-path`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
       
@@ -59,7 +59,7 @@ class ProgressService {
     try {
       const response = await fetch(`${API_URL}/progress/recommendations`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
       
