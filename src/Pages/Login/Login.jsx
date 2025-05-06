@@ -6,6 +6,7 @@ import { auth } from '../../firebase/auth';
 import { createUserProfile, getUserProfile } from '../../services/userService';
 import { FaEye, FaEyeSlash, FaGoogle } from 'react-icons/fa';
 import { BrainCircuit, BookOpen, Mail, Lock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 // Components
 import Button from '../../components/ui/Button';
@@ -14,6 +15,7 @@ import { ErrorMessage } from '../../components/ui/ErrorMessage';
 
 export const Login = () => {
   const navigate = useNavigate();
+  const { setUserProfile } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -33,36 +35,130 @@ export const Login = () => {
     try {
       setIsLoading(true);
       setAuthError('');
+      console.log("Iniciando proceso de autenticación con Google...");
       const result = await signInWithPopup(auth, googleProvider);
       
-      // Get the token
+      // Get the token and store it
       const token = await result.user.getIdToken();
+      console.log("Google auth successful, got token");
       sessionStorage.setItem('token', token);
       
-      // Check if user profile exists
-      const existingProfile = await getUserProfile(result.user.uid);
+      // For debugging - store user info
+      const userData = {
+        uid: result.user.uid,
+        displayName: result.user.displayName,
+        email: result.user.email,
+        provider: 'google',
+        photoURL: result.user.photoURL
+      };
       
-      // If profile doesn't exist, create it with profileCompleted set to false
-      if (!existingProfile) {
-        await createUserProfile(result.user.uid, {
-          displayName: result.user.displayName,
-          email: result.user.email,
-          photoURL: result.user.photoURL,
-          provider: 'google',
-          profileCompleted: false // Explicitly set to false for new users
-        });
-        // Redirect to user-info for new users
-        navigate('/user-info');
-      } else if (!existingProfile.profileCompleted) {
+      console.log("Información del usuario:", userData);
+      sessionStorage.setItem('userData', JSON.stringify(userData));
+      
+      // Check if user profile exists
+      let existingProfile = null;
+      let isNewUser = false;
+      
+      try {
+        console.log("Verificando si el perfil de usuario existe para:", result.user.uid);
+        existingProfile = await getUserProfile(result.user.uid);
+        console.log("Perfil existe:", existingProfile);
+      } catch (error) {
+        // Explicitly handle the "Usuario no encontrado" error or 404 status
+        if (error.message.includes('Usuario no encontrado') || 
+            error.message.includes('not found') || 
+            error.status === 404) {
+          console.log('Nuevo usuario detectado, se creará un perfil');
+          isNewUser = true;
+          // existingProfile remains null
+        } else if (error.message.includes('No autorizado') || error.status === 401) {
+          console.error('Error de autorización al verificar perfil:', error);
+          setAuthError('Error de autorización: El token no es válido o ha expirado.');
+          return;
+        } else {
+          // For other errors, show the error message and stop execution
+          console.error('Error inesperado al verificar perfil:', error);
+          setAuthError('Error al verificar perfil: ' + error.message);
+          throw error;
+        }
+      }
+      
+      // For new users, create a profile
+      if (isNewUser) {
+        try {
+          console.log('Creando nuevo perfil de usuario para:', result.user.uid);
+          const userDataToSave = {
+            displayName: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL,
+            provider: 'google',
+            profileCompleted: false // Explicitly set to false for new users
+          };
+          console.log('Datos de usuario a guardar:', userDataToSave);
+          
+          console.log('Llamando a createUserProfile...');
+          const createdProfile = await createUserProfile(result.user.uid, userDataToSave);
+          console.log('Perfil creado exitosamente:', createdProfile);
+          
+          // Actualizar el contexto con el nuevo perfil
+          await setUserProfile(createdProfile);
+          
+          // Redirect to user-info for new users
+          navigate('/user-info');
+          return;
+        } catch (error) {
+          console.error('Error al crear perfil de usuario:', error);
+          if (error.message.includes('No autorizado') || error.status === 401) {
+            setAuthError('Error de autorización: No se pudo crear el perfil porque el token no es válido.');
+          } else if (error.message.includes('API endpoint not found') || error.status === 404 || error.name === 'SyntaxError') {
+            console.error('Detalles del error:', error);
+            setAuthError('Error de servidor: La API no está disponible o el endpoint no existe. Verifique la configuración del backend.');
+          } else if (error.message.includes('ya existe')) {
+            // Si el usuario ya existe, intentar obtener el perfil nuevamente
+            console.log('El usuario ya existe, intentando obtener el perfil...');
+            try {
+              existingProfile = await getUserProfile(result.user.uid);
+              console.log('Perfil recuperado:', existingProfile);
+              // Continue to the next section to handle existing profile
+            } catch (getError) {
+              console.error('Error al recuperar perfil existente:', getError);
+              setAuthError('Error al recuperar perfil existente: ' + getError.message);
+              return;
+            }
+          } else {
+            setAuthError('Error al crear perfil: ' + error.message);
+            return;
+          }
+        }
+      }
+      
+      // For existing users, check if profile is completed
+      if (!existingProfile || !existingProfile.profileCompleted) {
+        console.log('Redirigiendo a completar perfil...');
+        // Actualizar el contexto con el perfil existente
+        await setUserProfile(existingProfile);
         // Redirect to user-info if profile exists but is not completed
         navigate('/user-info');
       } else {
+        console.log('Perfil completo, redirigiendo a home...', existingProfile);
+        // Actualizar el contexto con el perfil existente
+        await setUserProfile(existingProfile);
         // Redirect to home if profile exists and is completed
         navigate('/home');
       }
     } catch (error) {
-      console.error('Google sign in error:', error);
-      setAuthError('Error al iniciar sesión con Google. Intenta de nuevo.');
+      console.error('Error de inicio de sesión con Google:', error);
+      
+      // Provide more helpful error messages based on the error type
+      if (error.name === 'SyntaxError') {
+        setAuthError('Error: La respuesta del servidor no es válida. Verifique que el backend esté funcionando correctamente.');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        setAuthError('Inicio de sesión cancelado: La ventana de Google fue cerrada.');
+      } else if (error.message.includes('API endpoint not found')) {
+        setAuthError('Error de conexión: No se puede conectar con el servidor backend.');
+      } else {
+        setAuthError('Error al iniciar sesión con Google: ' + error.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -86,6 +182,9 @@ export const Login = () => {
         ...userCredential.user,
         role: userProfile?.role || 'user'
       }));
+      
+      // Actualizar el contexto con el perfil del usuario
+      await setUserProfile(userProfile);
       
       if (userProfile?.role === 'admin') {
         navigate('/admin');
