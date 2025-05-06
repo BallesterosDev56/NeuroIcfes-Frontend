@@ -8,52 +8,9 @@ import {
   Save, 
   X,
   Book,
-  CheckCircle,
-  AlertCircle,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle
 } from 'lucide-react';
-
-const Modal = ({ isOpen, onClose, title, message, type = 'confirm', onConfirm }) => {
-  if (!isOpen) return null;
-
-  const isSuccess = type === 'success';
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className="flex items-center justify-center mb-4">
-          {isSuccess ? (
-            <CheckCircle className="h-12 w-12 text-green-500" />
-          ) : (
-            <AlertTriangle className="h-12 w-12 text-yellow-500" />
-          )}
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 text-center mb-2">{title}</h3>
-        <p className="text-sm text-gray-500 text-center mb-6">{message}</p>
-        <div className="flex justify-end space-x-3">
-          {!isSuccess && (
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Cancelar
-            </button>
-          )}
-          <button
-            onClick={isSuccess ? onClose : onConfirm}
-            className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              isSuccess 
-                ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' 
-                : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-            }`}
-          >
-            {isSuccess ? 'Aceptar' : 'Eliminar'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }) => {
   if (!isOpen) return null;
@@ -120,6 +77,7 @@ const SuccessModal = ({ isOpen, onClose, title, message }) => {
 const QuestionDashboard = () => {
   const { questions, loading, error, fetchQuestions, createQuestion, updateQuestion, deleteQuestion } = useApp();
   const [selectedSubject, setSelectedSubject] = useState('matematicas');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('facil');
   const [isAddingQuestion, setIsAddingQuestion] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -138,41 +96,45 @@ const QuestionDashboard = () => {
   });
 
   useEffect(() => {
-    fetchQuestions(selectedSubject, 'all');
-  }, [selectedSubject, fetchQuestions]);
-
-  const subjects = [
-    { key: 'matematicas', label: 'Matemáticas' },
-    { key: 'ciencias', label: 'Ciencias Naturales' },
-    { key: 'lenguaje', label: 'Lectura Crítica' },
-    { key: 'sociales', label: 'Ciencias Sociales' },
-    { key: 'ingles', label: 'Inglés' }
-  ];
+    const loadQuestions = async () => {
+      try {
+        console.log('Fetching questions for subject:', selectedSubject, 'difficulty:', selectedDifficulty);
+        await fetchQuestions(selectedSubject, selectedDifficulty);
+      } catch (error) {
+        console.error('Error loading questions:', error);
+        setSuccessModal({
+          isOpen: true,
+          title: 'Error',
+          message: 'No se pudieron cargar las preguntas. Por favor, intenta de nuevo.'
+        });
+      }
+    };
+    loadQuestions();
+  }, [selectedSubject, selectedDifficulty, fetchQuestions]);
 
   const validateForm = () => {
     const errors = [];
-
+    
     if (!formData.questionText.trim()) {
-      errors.push('La pregunta no puede estar vacía');
+      errors.push('El texto de la pregunta es requerido');
     }
-
-    if (formData.questionText.length < 10) {
-      errors.push('La pregunta debe tener al menos 10 caracteres');
-    }
-
-    const emptyOptions = formData.options.filter(option => !option.trim());
-    if (emptyOptions.length > 0) {
+    
+    if (formData.options.some(option => !option.trim())) {
       errors.push('Todas las opciones deben estar completas');
     }
-
-    if (formData.options.some(option => option.length < 3)) {
-      errors.push('Cada opción debe tener al menos 3 caracteres');
+    
+    if (formData.options.length !== 4) {
+      errors.push('Debe haber exactamente 4 opciones');
     }
-
-    if (formData.correctAnswer === undefined || formData.correctAnswer === null) {
-      errors.push('Debes seleccionar una respuesta correcta');
+    
+    if (formData.correctAnswer < 0 || formData.correctAnswer > 3) {
+      errors.push('Debe seleccionar una opción correcta válida');
     }
-
+    
+    if (!formData.difficulty) {
+      errors.push('Debe seleccionar un nivel de dificultad');
+    }
+    
     return errors;
   };
 
@@ -200,16 +162,91 @@ const QuestionDashboard = () => {
     }));
   };
 
+  const resetForm = () => {
+    setFormData({
+      questionText: '',
+      options: ['', '', '', ''],
+      correctAnswer: 0,
+      difficulty: 'facil',
+      tags: []
+    });
+    setIsAddingQuestion(false);
+    setEditingQuestion(null);
+  };
+
+  const handleEdit = (question) => {
+    try {
+      console.log('Editing question:', question);
+      setEditingQuestion(question);
+      setFormData({
+        questionText: question.questionText,
+        options: question.options.map(opt => opt.text),
+        correctAnswer: question.options.findIndex(opt => opt.isCorrect),
+        difficulty: question.difficulty,
+        tags: question.tags || []
+      });
+      setIsAddingQuestion(true);
+    } catch (error) {
+      console.error('Error setting up edit form:', error);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error al cargar la pregunta para editar.'
+      });
+    }
+  };
+
+  const handleDelete = (question) => {
+    try {
+      console.log('Preparing to delete question:', question);
+      setQuestionToDelete(question);
+      setDeleteModalOpen(true);
+    } catch (error) {
+      console.error('Error preparing delete:', error);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error al preparar la eliminación de la pregunta.'
+      });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      console.log('Deleting question:', questionToDelete._id);
+      await deleteQuestion(questionToDelete._id);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Pregunta eliminada',
+        message: 'La pregunta ha sido eliminada exitosamente.'
+      });
+    } catch (error) {
+      console.error('Error deleting question:', error);
+      setSuccessModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error al eliminar la pregunta.'
+      });
+    } finally {
+      setDeleteModalOpen(false);
+      setQuestionToDelete(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    const validationErrors = validateForm();
-    if (validationErrors.length > 0) {
-      alert(validationErrors.join('\n'));
-      return;
-    }
-
     try {
+      const validationErrors = validateForm();
+      if (validationErrors.length > 0) {
+        setSuccessModal({
+          isOpen: true,
+          title: 'Error de validación',
+          message: validationErrors.join('\n')
+        });
+        return;
+      }
+
       const options = formData.options.map((text, index) => ({
         text: text.trim(),
         isCorrect: index === formData.correctAnswer
@@ -217,22 +254,24 @@ const QuestionDashboard = () => {
 
       const correctOptions = options.filter(opt => opt.isCorrect);
       if (correctOptions.length !== 1) {
-        alert('Debe haber exactamente una opción correcta');
+        setSuccessModal({
+          isOpen: true,
+          title: 'Error',
+          message: 'Debe haber exactamente una opción correcta'
+        });
         return;
       }
 
       const questionData = {
         subject: selectedSubject,
         questionText: formData.questionText.trim(),
-        options: formData.options.map((text, index) => ({
-          text: text.trim(),
-          isCorrect: index === formData.correctAnswer
-        })),
+        options,
         difficulty: formData.difficulty,
         tags: formData.tags || []
       };
 
       if (editingQuestion) {
+        console.log('Updating question:', editingQuestion._id, questionData);
         await updateQuestion(editingQuestion._id, questionData);
         setSuccessModal({
           isOpen: true,
@@ -240,6 +279,7 @@ const QuestionDashboard = () => {
           message: 'La pregunta ha sido actualizada exitosamente.'
         });
       } else {
+        console.log('Creating new question:', questionData);
         await createQuestion(questionData);
         setSuccessModal({
           isOpen: true,
@@ -250,49 +290,46 @@ const QuestionDashboard = () => {
       resetForm();
     } catch (error) {
       console.error('Error saving question:', error);
-      alert('Error al guardar la pregunta. Por favor, verifica todos los campos.');
+      setSuccessModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error al guardar la pregunta. Por favor, verifica todos los campos.'
+      });
     }
   };
 
-  const handleEdit = (question) => {
-    setEditingQuestion(question);
-    setFormData({
-      questionText: question.questionText,
-      options: question.options.map(opt => opt.text),
-      correctAnswer: question.options.findIndex(opt => opt.isCorrect),
-      difficulty: question.difficulty,
-      tags: question.tags
-    });
-    setIsAddingQuestion(true);
-  };
+  if (loading.questions) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
-  const handleDelete = async (questionId) => {
-    setQuestionToDelete(questionId);
-    setDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteQuestion(questionToDelete);
-      setDeleteModalOpen(false);
-      setQuestionToDelete(null);
-    } catch (error) {
-      console.error('Error deleting question:', error);
-      alert('Error al eliminar la pregunta. Por favor, intenta nuevamente.');
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      questionText: '',
-      options: ['', '', '', ''],
-      correctAnswer: 0,
-      difficulty: 'facil',
-      tags: []
-    });
-    setEditingQuestion(null);
-    setIsAddingQuestion(false);
-  };
+  if (error.questions) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">
+                {error.questions}
+              </p>
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => fetchQuestions(selectedSubject, selectedDifficulty)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -307,49 +344,68 @@ const QuestionDashboard = () => {
         title={successModal.title}
         message={successModal.message}
       />
+      
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Gestión de Preguntas</h1>
-        <div className="flex gap-4">
+        <h2 className="text-2xl font-bold text-gray-900">Gestión de Preguntas</h2>
+        <button
+          onClick={() => setIsAddingQuestion(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          <Plus className="h-5 w-5 mr-2" />
+          Nueva Pregunta
+        </button>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Materia
+          </label>
           <select
             value={selectedSubject}
             onChange={(e) => setSelectedSubject(e.target.value)}
-            className="rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
           >
-            {subjects.map(subject => (
-              <option key={subject.key} value={subject.key}>
-                {subject.label}
-              </option>
-            ))}
+            <option value="matematicas">Matemáticas</option>
+            <option value="ciencias">Ciencias</option>
+            <option value="sociales">Sociales</option>
+            <option value="lectura">Lectura Crítica</option>
+            <option value="ingles">Inglés</option>
           </select>
-          <button
-            onClick={() => setIsAddingQuestion(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Dificultad
+          </label>
+          <select
+            value={selectedDifficulty}
+            onChange={(e) => setSelectedDifficulty(e.target.value)}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
           >
-            <Plus className="h-5 w-5 mr-2" />
-            Nueva Pregunta
-          </button>
+            <option value="facil">Fácil</option>
+            <option value="medio">Medio</option>
+            <option value="dificil">Difícil</option>
+          </select>
         </div>
       </div>
 
-      <LoadingError
-        loading={loading.questions}
-        error={error.questions}
-        onRetry={() => fetchQuestions(selectedSubject, 'all')}
-      >
-        {isAddingQuestion && (
-          <div className="mb-6 bg-white rounded-lg shadow p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-medium text-gray-900">
-                {editingQuestion ? 'Editar Pregunta' : 'Nueva Pregunta'}
-              </h2>
-              <button
-                onClick={resetForm}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
+      {isAddingQuestion ? (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              {editingQuestion ? 'Editar Pregunta' : 'Nueva Pregunta'}
+            </h3>
+            <button
+              onClick={resetForm}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Pregunta
@@ -359,40 +415,33 @@ const QuestionDashboard = () => {
                   value={formData.questionText}
                   onChange={handleInputChange}
                   rows={3}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  required
-                  minLength={10}
-                  placeholder="Escribe la pregunta aquí (mínimo 10 caracteres)"
+                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Escribe la pregunta aquí..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Opciones
                 </label>
-                <div className="mt-2 space-y-2">
-                  {formData.options.map((option, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="correctAnswer"
-                        checked={formData.correctAnswer === index}
-                        onChange={() => handleCorrectAnswerChange(index)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                        required
-                      />
-                      <input
-                        type="text"
-                        value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                        className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        placeholder={`Opción ${index + 1} (mínimo 3 caracteres)`}
-                        required
-                        minLength={3}
-                      />
-                    </div>
-                  ))}
-                </div>
+                {formData.options.map((option, index) => (
+                  <div key={index} className="flex items-center mb-2">
+                    <input
+                      type="radio"
+                      name="correctAnswer"
+                      checked={formData.correctAnswer === index}
+                      onChange={() => handleCorrectAnswerChange(index)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <input
+                      type="text"
+                      value={option}
+                      onChange={(e) => handleOptionChange(index, e.target.value)}
+                      className="ml-2 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder={`Opción ${index + 1}`}
+                    />
+                  </div>
+                ))}
               </div>
 
               <div>
@@ -403,8 +452,7 @@ const QuestionDashboard = () => {
                   name="difficulty"
                   value={formData.difficulty}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                  required
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                 >
                   <option value="facil">Fácil</option>
                   <option value="medio">Medio</option>
@@ -412,84 +460,75 @@ const QuestionDashboard = () => {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-4">
+              <div className="flex justify-end space-x-3">
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                 >
-                  <Save className="h-5 w-5 mr-2" />
-                  {editingQuestion ? 'Actualizar' : 'Guardar'}
+                  {editingQuestion ? 'Actualizar' : 'Crear'}
                 </button>
               </div>
-            </form>
-          </div>
-        )}
+            </div>
+          </form>
+        </div>
+      ) : null}
 
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pregunta
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Materia
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Dificultad
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {questions.map((question) => (
-                <tr key={question._id}>
-                  <td className="px-6 py-4 whitespace-normal">
-                    <div className="text-sm text-gray-900">{question.questionText}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {subjects.find(s => s.key === question.subject)?.label || question.subject}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${question.difficulty === 'facil' ? 'bg-green-100 text-green-800' : 
-                        question.difficulty === 'medio' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'}`}>
-                      {question.difficulty === 'facil' ? 'Fácil' : 
-                       question.difficulty === 'medio' ? 'Medio' : 'Difícil'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+      <div className="bg-white shadow overflow-hidden sm:rounded-md">
+        <ul className="divide-y divide-gray-200">
+          {questions && questions.length > 0 ? (
+            questions.map((question) => (
+              <li key={question._id} className="px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{question.questionText}</p>
+                    <div className="mt-2 flex items-center text-sm text-gray-500">
+                      <span className="mr-4">Dificultad: {question.difficulty}</span>
+                      <span>Materia: {question.subject}</span>
+                    </div>
+                  </div>
+                  <div className="ml-4 flex-shrink-0 flex space-x-2">
                     <button
                       onClick={() => handleEdit(question)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      className="p-2 text-blue-600 hover:text-blue-900"
                     >
                       <Edit className="h-5 w-5" />
                     </button>
                     <button
-                      onClick={() => handleDelete(question._id)}
-                      className="text-red-600 hover:text-red-900"
+                      onClick={() => handleDelete(question)}
+                      className="p-2 text-red-600 hover:text-red-900"
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </LoadingError>
+                  </div>
+                </div>
+              </li>
+            ))
+          ) : (
+            <li className="px-6 py-8 text-center">
+              <div className="flex flex-col items-center">
+                <Book className="h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-500 mb-2">No hay preguntas disponibles para esta materia y dificultad.</p>
+                <button
+                  onClick={() => setIsAddingQuestion(true)}
+                  className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Crear Nueva Pregunta
+                </button>
+              </div>
+            </li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 };
 
-export default QuestionDashboard; 
+export default QuestionDashboard;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { AppProvider } from '../../context/AppContext';
 import { BrainCircuit, BookOpen, LogOut } from 'lucide-react';
 import QuestionDashboard from '../../components/Admin/QuestionDashboard';
 import { getAllUsers } from '../../services/userService';
@@ -104,52 +105,54 @@ export const AdminDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 w-64 bg-blue-600 text-white">
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-center h-16 px-4 bg-blue-700">
-            <BrainCircuit className="h-8 w-8 mr-2" />
-            <span className="text-xl font-bold">NeuroICFES Admin</span>
-          </div>
-          
-          <nav className="flex-1 px-4 py-4 space-y-2">
-            <button
-              onClick={() => setActiveSection('dashboard')}
-              className={`flex items-center w-full px-4 py-2 text-white rounded-lg ${
-                activeSection === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-700'
-              }`}
-            >
-              <BrainCircuit className="h-5 w-5 mr-3" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveSection('questions')}
-              className={`flex items-center w-full px-4 py-2 text-white rounded-lg ${
-                activeSection === 'questions' ? 'bg-blue-700' : 'hover:bg-blue-700'
-              }`}
-            >
-              <BookOpen className="h-5 w-5 mr-3" />
-              Preguntas
-            </button>
-          </nav>
+    <AppProvider>
+      <div className="min-h-screen bg-gray-100">
+        {/* Sidebar */}
+        <div className="fixed inset-y-0 left-0 w-64 bg-blue-600 text-white">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-center h-16 px-4 bg-blue-700">
+              <BrainCircuit className="h-8 w-8 mr-2" />
+              <span className="text-xl font-bold">NeuroICFES Admin</span>
+            </div>
+            
+            <nav className="flex-1 px-4 py-4 space-y-2">
+              <button
+                onClick={() => setActiveSection('dashboard')}
+                className={`flex items-center w-full px-4 py-2 text-white rounded-lg ${
+                  activeSection === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-700'
+                }`}
+              >
+                <BrainCircuit className="h-5 w-5 mr-3" />
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveSection('questions')}
+                className={`flex items-center w-full px-4 py-2 text-white rounded-lg ${
+                  activeSection === 'questions' ? 'bg-blue-700' : 'hover:bg-blue-700'
+                }`}
+              >
+                <BookOpen className="h-5 w-5 mr-3" />
+                Preguntas
+              </button>
+            </nav>
 
-          <div className="p-4 border-t border-blue-700">
-            <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 text-white hover:bg-blue-700 rounded-lg"
-            >
-              <LogOut className="h-5 w-5 mr-3" />
-              Cerrar Sesión
-            </button>
+            <div className="p-4 border-t border-blue-700">
+              <button
+                onClick={handleLogout}
+                className="flex items-center w-full px-4 py-2 text-white hover:bg-blue-700 rounded-lg"
+              >
+                <LogOut className="h-5 w-5 mr-3" />
+                Cerrar Sesión
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="ml-64 p-8">
-        {renderContent()}
+        {/* Main Content */}
+        <div className="ml-64 p-8">
+          {renderContent()}
+        </div>
       </div>
-    </div>
+    </AppProvider>
   );
 }; 

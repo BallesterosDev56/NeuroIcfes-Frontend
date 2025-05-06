@@ -30,18 +30,20 @@ export const createUserProfile = async (userId, userData) => {
 
 export const getUserProfile = async (userId) => {
   try {
-    const response = await fetch(`${API_URL}/users/${userId}`);
-    
+    const response = await fetch(`${API_URL}/users/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
     if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
-      throw new Error('Error getting user profile');
+      throw new Error('Error fetching user profile');
     }
 
     return await response.json();
   } catch (error) {
-    console.error('Error getting user profile:', error);
+    console.error('Error fetching user profile:', error);
     throw error;
   }
 };
@@ -53,10 +55,7 @@ export const updateUserProfile = async (userId, userData) => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...userData,
-        updatedAt: new Date()
-      }),
+      body: JSON.stringify(userData),
     });
 
     if (!response.ok) {
@@ -66,6 +65,27 @@ export const updateUserProfile = async (userId, userData) => {
     return await response.json();
   } catch (error) {
     console.error('Error updating user profile:', error);
+    throw error;
+  }
+};
+
+export const getAllUsers = async () => {
+  try {
+    const response = await fetch(`${API_URL}/users`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Error fetching users');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching users:', error);
     throw error;
   }
 }; 

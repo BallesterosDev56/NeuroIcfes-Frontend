@@ -24,7 +24,10 @@ export const AuthProvider = ({ children }) => {
           setUserProfile(profile);
           
           // Store user data in sessionStorage
-          sessionStorage.setItem('userData', JSON.stringify(profile));
+          sessionStorage.setItem('userData', JSON.stringify({
+            ...user,
+            role: profile?.role || 'user'
+          }));
           
           // Set whether profile completion is required
           setRequiresProfile(!profile || !profile.profileCompleted);
@@ -56,6 +59,7 @@ export const AuthProvider = ({ children }) => {
       // Actualizar también en sessionStorage
       const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
       userData.profile = updatedProfile;
+      userData.role = updatedProfile?.role || 'user';
       sessionStorage.setItem('userData', JSON.stringify(userData));
       
       return updatedProfile;
@@ -70,7 +74,8 @@ export const AuthProvider = ({ children }) => {
     userProfile,
     setUserProfile: updateUserProfile,
     loading,
-    requiresProfile
+    requiresProfile,
+    user: userProfile // Agregamos user como alias de userProfile para mantener compatibilidad
   };
 
   return (

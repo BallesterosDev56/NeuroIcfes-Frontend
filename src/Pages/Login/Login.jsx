@@ -35,6 +35,10 @@ export const Login = () => {
       setAuthError('');
       const result = await signInWithPopup(auth, googleProvider);
       
+      // Get the token
+      const token = await result.user.getIdToken();
+      sessionStorage.setItem('token', token);
+      
       // Check if user profile exists
       const existingProfile = await getUserProfile(result.user.uid);
       
@@ -68,8 +72,28 @@ export const Login = () => {
     try {
       setIsLoading(true);
       setAuthError('');
-      await signInWithEmailAndPassword(auth, data.email, data.password);
-      navigate('/home');
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      
+      // Get the token
+      const token = await userCredential.user.getIdToken();
+      sessionStorage.setItem('token', token);
+      
+      // Get user profile to check role
+      const userProfile = await getUserProfile(userCredential.user.uid);
+      
+      // Store user data in sessionStorage
+      sessionStorage.setItem('userData', JSON.stringify({
+        ...userCredential.user,
+        role: userProfile?.role || 'user'
+      }));
+      
+      if (userProfile?.role === 'admin') {
+        navigate('/admin');
+      } else if (!userProfile?.profileCompleted) {
+        navigate('/user-info');
+      } else {
+        navigate('/home');
+      }
     } catch (error) {
       console.error('Login error:', error);
       

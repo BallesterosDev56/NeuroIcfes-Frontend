@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 class QuestionService {
   async getQuestions(subject, difficulty) {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -19,8 +19,12 @@ class QuestionService {
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to fetch questions');
+        const errorData = await response.json();
+        if (errorData.message && errorData.message.includes('No se encontraron preguntas')) {
+          console.log('No questions found for the given criteria');
+          return [];
+        }
+        throw new Error(errorData.message || 'Failed to fetch questions');
       }
 
       const data = await response.json();
@@ -41,7 +45,7 @@ class QuestionService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
         body: JSON.stringify({ answer })
       });
@@ -65,7 +69,7 @@ class QuestionService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
         body: JSON.stringify({ userResponse })
       });
@@ -90,7 +94,7 @@ class QuestionService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
         body: JSON.stringify(questionData)
       });
@@ -114,7 +118,7 @@ class QuestionService {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
         body: JSON.stringify(questionData)
       });
@@ -137,7 +141,7 @@ class QuestionService {
       const response = await fetch(`${API_URL}/questions/${questionId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
       });
 
