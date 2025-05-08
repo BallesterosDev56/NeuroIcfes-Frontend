@@ -3,6 +3,7 @@ import { BrainCircuit, BookOpen, Award, Clock, BarChart, AlertCircle, ArrowRight
 import { useApp } from '../../context/AppContext';
 import { LoadingError } from '../LoadingError';
 import AnimatedCharacter from '../AnimatedCharacter/AnimatedCharacter';
+import SharedContentViewer from '../SharedContent/SharedContentViewer';
 
 const SUBJECTS = ['matematicas', 'ciencias', 'sociales', 'lenguaje', 'ingles'];
 const QUESTIONS_PER_SESSION = 10;
@@ -404,9 +405,12 @@ const PracticeSection = () => {
         return;
       }
       
+      // Obtener el ID del contenido compartido si existe
+      const sharedContentId = openaiChat.sharedContent ? openaiChat.sharedContent._id : null;
+      
       // Get the next question with retry
       const response = await retryOperation(async () => {
-        return await getNextOpenAIQuestion(selectedSubject, currentDifficulty);
+        return await getNextOpenAIQuestion(selectedSubject, currentDifficulty, sharedContentId);
       });
       
       if (response.noQuestionsAvailable) {
@@ -424,7 +428,7 @@ const PracticeSection = () => {
     } finally {
       dispatch({ type: 'SET_SUBMITTING', payload: false });
     }
-  }, [selectedSubject, currentDifficulty, getNextOpenAIQuestion, answeredQuestions.length, retryOperation]);
+  }, [selectedSubject, currentDifficulty, getNextOpenAIQuestion, answeredQuestions.length, retryOperation, openaiChat]);
 
   // Add a better error boundary component
   const ErrorBoundaryComponent = ({ children, error, onRetry }) => {
@@ -462,6 +466,15 @@ const PracticeSection = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             {currentQuestion && (
               <>
+                {/* Mostrar contenido compartido si existe */}
+                {openaiChat.sharedContent && (
+                  <SharedContentViewer 
+                    sharedContent={openaiChat.sharedContent}
+                    currentQuestionNumber={openaiChat.currentQuestionNumber || 1}
+                    totalQuestions={openaiChat.totalQuestions || 1}
+                  />
+                )}
+                
                 <div className="p-5 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-100 shadow-sm mb-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-2">{currentQuestion.questionText}</h3>
                   <div className="flex items-center text-xs text-indigo-700 font-medium">
@@ -486,9 +499,8 @@ const PracticeSection = () => {
                   <div className="mb-4 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-indigo-100 shadow-sm">
                     <h4 className="font-medium text-indigo-900 mb-2 flex items-center">
                       <Award size={18} className="mr-2" />
-                      Explicación:
+                      ¡Respuesta Correcta!
                     </h4>
-                    <p className="text-indigo-700">{currentQuestion.explanation}</p>
                   </div>
                 )}
               </>

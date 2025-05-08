@@ -4,17 +4,25 @@ class OpenAIService {
   /**
    * Start a new chat session with OpenAI
    * @param {string} subject - The subject of study
+   * @param {string} sharedContentId - Optional ID of shared content
    * @returns {Promise<Object>} - The response from the server
    */
-  async startChat(subject) {
+  async startChat(subject, sharedContentId = null) {
     try {
+      const payload = { subject };
+      
+      // Añadir sharedContentId al payload si existe
+      if (sharedContentId) {
+        payload.sharedContentId = sharedContentId;
+      }
+      
       const response = await fetch(`${API_URL}/chat/openai/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         },
-        body: JSON.stringify({ subject })
+        body: JSON.stringify(payload)
       });
       
       if (!response.ok) {
@@ -89,14 +97,50 @@ class OpenAIService {
    * Get the next question in the session
    * @param {string} subject - The current subject
    * @param {string} difficulty - The current difficulty level
+   * @param {string} sharedContentId - Optional ID of shared content
    * @returns {Promise<Object>} - The next question
    */
-  async getNextQuestion(subject, difficulty) {
+  async getNextQuestion(subject, difficulty, sharedContentId = null) {
     try {
-      const response = await fetch(`${API_URL}/chat/openai/next-question?subject=${subject}&difficulty=${difficulty}`, {
+      let url = `${API_URL}/chat/openai/next-question?subject=${subject}&difficulty=${difficulty}`;
+      
+      // Añadir sharedContentId al URL si existe
+      if (sharedContentId) {
+        url += `&sharedContentId=${sharedContentId}`;
+      }
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${sessionStorage.getItem('token')}`
         }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Network response was not ok');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get information about a specific element in an image
+   * @param {string} sharedContentId - The ID of the shared content
+   * @param {number} elementId - The ID of the element
+   * @returns {Promise<Object>} - Information about the element
+   */
+  async getImageElementInfo(sharedContentId, elementId) {
+    try {
+      const response = await fetch(`${API_URL}/chat/openai/image-element-info`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ sharedContentId, elementId })
       });
       
       if (!response.ok) {

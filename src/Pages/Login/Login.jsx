@@ -101,7 +101,7 @@ export const Login = () => {
           console.log('Perfil creado exitosamente:', createdProfile);
           
           // Actualizar el contexto con el nuevo perfil
-          await setUserProfile(createdProfile);
+          await setUserProfile({...createdProfile, uid: result.user.uid});
           
           // Redirect to user-info for new users
           navigate('/user-info');
@@ -136,13 +136,13 @@ export const Login = () => {
       if (!existingProfile || !existingProfile.profileCompleted) {
         console.log('Redirigiendo a completar perfil...');
         // Actualizar el contexto con el perfil existente
-        await setUserProfile(existingProfile);
+        await setUserProfile({...existingProfile, uid: result.user.uid});
         // Redirect to user-info if profile exists but is not completed
         navigate('/user-info');
       } else {
         console.log('Perfil completo, redirigiendo a home...', existingProfile);
         // Actualizar el contexto con el perfil existente
-        await setUserProfile(existingProfile);
+        await setUserProfile({...existingProfile, uid: result.user.uid});
         // Redirect to home if profile exists and is completed
         navigate('/home');
       }
@@ -184,7 +184,7 @@ export const Login = () => {
       }));
       
       // Actualizar el contexto con el perfil del usuario
-      await setUserProfile(userProfile);
+      await setUserProfile({...userProfile, uid: userCredential.user.uid});
       
       if (userProfile?.role === 'admin') {
         navigate('/admin');

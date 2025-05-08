@@ -3,6 +3,7 @@ import {questionService} from '../services/QuestionService';
 import ProgressService from '../services/ProgressService';
 import ChatService from '../services/ChatService';
 import OpenAIService from '../services/openaiService';
+import { sharedContentService } from '../services/sharedContentService';
 
 const AppContext = createContext();
 
@@ -15,20 +16,27 @@ const initialState = {
     messages: [],
     isCorrect: false,
     lastQuestion: null,
-    noQuestionsAvailable: false
+    noQuestionsAvailable: false,
+    sharedContent: null,
+    totalQuestions: 0,
+    currentQuestionNumber: 1
   },
   loading: {
     questions: false,
     progress: false,
     chat: false,
-    openai: false
+    openai: false,
+    sharedContent: false
   },
   error: {
     questions: null,
     progress: null,
     chat: null,
-    openai: null
-  }
+    openai: null,
+    sharedContent: null
+  },
+  sharedContents: [],
+  currentSharedContent: null
 };
 
 function appReducer(state, action) {
@@ -134,7 +142,10 @@ function appReducer(state, action) {
           ...state.openaiChat,
           messages: action.payload.chatHistory || [],
           lastQuestion: action.payload.question || null,
-          noQuestionsAvailable: action.payload.noQuestionsAvailable || false
+          noQuestionsAvailable: action.payload.noQuestionsAvailable || false,
+          sharedContent: action.payload.sharedContent || null,
+          totalQuestions: action.payload.totalQuestions || 0,
+          currentQuestionNumber: action.payload.currentQuestionNumber || 1
         },
         currentQuestion: action.payload.question || state.currentQuestion
       };
@@ -177,10 +188,13 @@ function appReducer(state, action) {
         loading: { ...state.loading, openai: false },
         openaiChat: {
           ...state.openaiChat,
-          messages: [],
+          messages: action.payload.chatHistory || [],
           isCorrect: false,
           lastQuestion: action.payload.question || null,
-          noQuestionsAvailable: action.payload.noQuestionsAvailable || false
+          noQuestionsAvailable: action.payload.noQuestionsAvailable || false,
+          sharedContent: action.payload.sharedContent || state.openaiChat.sharedContent,
+          totalQuestions: action.payload.totalQuestions || state.openaiChat.totalQuestions,
+          currentQuestionNumber: action.payload.currentQuestionNumber || 1
         },
         currentQuestion: action.payload.question || state.currentQuestion
       };
@@ -200,6 +214,30 @@ function appReducer(state, action) {
           noQuestionsAvailable: false
         },
         error: { ...state.error, openai: null }
+      };
+    case 'FETCH_SHARED_CONTENTS_START':
+      return {
+        ...state,
+        loading: { ...state.loading, sharedContent: true },
+        error: { ...state.error, sharedContent: null }
+      };
+    case 'FETCH_SHARED_CONTENTS_SUCCESS':
+      return {
+        ...state,
+        sharedContents: action.payload,
+        loading: { ...state.loading, sharedContent: false }
+      };
+    case 'FETCH_SHARED_CONTENTS_ERROR':
+      return {
+        ...state,
+        loading: { ...state.loading, sharedContent: false },
+        error: { ...state.error, sharedContent: action.payload }
+      };
+    case 'FETCH_SHARED_CONTENT_SUCCESS':
+      return {
+        ...state,
+        currentSharedContent: action.payload,
+        loading: { ...state.loading, sharedContent: false }
       };
     default:
       return state;
@@ -293,10 +331,10 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  const startOpenAIChat = useCallback(async (subject, interests) => {
+  const startOpenAIChat = useCallback(async (subject, interests, sharedContentId = null) => {
     dispatch({ type: 'OPENAI_CHAT_START' });
     try {
-      const response = await OpenAIService.startChat(subject, interests);
+      const response = await OpenAIService.startChat(subject, sharedContentId);
       dispatch({ type: 'OPENAI_CHAT_SUCCESS', payload: response });
       return response;
     } catch (error) {
@@ -329,10 +367,10 @@ export function AppProvider({ children }) {
     }
   }, []);
   
-  const getNextOpenAIQuestion = useCallback(async (subject, difficulty) => {
+  const getNextOpenAIQuestion = useCallback(async (subject, difficulty, sharedContentId = null) => {
     dispatch({ type: 'OPENAI_NEXT_QUESTION_START' });
     try {
-      const response = await OpenAIService.getNextQuestion(subject, difficulty);
+      const response = await OpenAIService.getNextQuestion(subject, difficulty, sharedContentId);
       dispatch({ type: 'OPENAI_NEXT_QUESTION_SUCCESS', payload: response });
       return response;
     } catch (error) {
@@ -343,6 +381,78 @@ export function AppProvider({ children }) {
   
   const resetOpenAIChat = useCallback(() => {
     dispatch({ type: 'OPENAI_RESET_CHAT' });
+  }, []);
+
+  const fetchSharedContents = useCallback(async (subject = null) => {
+    dispatch({ type: 'FETCH_SHARED_CONTENTS_START' });
+    try {
+      const contents = await sharedContentService.getAll(subject);
+      dispatch({ type: 'FETCH_SHARED_CONTENTS_SUCCESS', payload: contents });
+      return contents;
+    } catch (error) {
+      dispatch({ type: 'FETCH_SHARED_CONTENTS_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+
+  const fetchSharedContentById = useCallback(async (id) => {
+    dispatch({ type: 'FETCH_SHARED_CONTENTS_START' });
+    try {
+      const content = await sharedContentService.getById(id);
+      dispatch({ type: 'FETCH_SHARED_CONTENT_SUCCESS', payload: content });
+      return content;
+    } catch (error) {
+      dispatch({ type: 'FETCH_SHARED_CONTENTS_ERROR', payload: error.message });
+      throw error;
+    }
+  }, []);
+
+  const createSharedContent = useCallback(async (contentData) => {
+    dispatch({ type: 'FETCH_SHARED_CONTENTS_START' });
+    try {
+      const content = await sharedContentService.create(contentData);
+      // Refrescar la lista después de crear
+      await fetchSharedContents(contentData.subject);
+      return content;
+    } catch (error) {
+      dispatch({ type: 'FETCH_SHARED_CONTENTS_ERROR', payload: error.message });
+      throw error;
+    }
+  }, [fetchSharedContents]);
+
+  const updateSharedContent = useCallback(async (id, contentData) => {
+    dispatch({ type: 'FETCH_SHARED_CONTENTS_START' });
+    try {
+      const content = await sharedContentService.update(id, contentData);
+      // Refrescar la lista después de actualizar
+      await fetchSharedContents(contentData.subject);
+      return content;
+    } catch (error) {
+      dispatch({ type: 'FETCH_SHARED_CONTENTS_ERROR', payload: error.message });
+      throw error;
+    }
+  }, [fetchSharedContents]);
+
+  const deleteSharedContent = useCallback(async (id, subject) => {
+    dispatch({ type: 'FETCH_SHARED_CONTENTS_START' });
+    try {
+      await sharedContentService.delete(id);
+      // Refrescar la lista después de eliminar
+      await fetchSharedContents(subject);
+      return { success: true };
+    } catch (error) {
+      dispatch({ type: 'FETCH_SHARED_CONTENTS_ERROR', payload: error.message });
+      throw error;
+    }
+  }, [fetchSharedContents]);
+
+  const getImageElementInfo = useCallback(async (sharedContentId, elementId) => {
+    try {
+      return await OpenAIService.getImageElementInfo(sharedContentId, elementId);
+    } catch (error) {
+      console.error('Error getting image element info:', error);
+      throw error;
+    }
   }, []);
 
   const value = {
@@ -358,7 +468,13 @@ export function AppProvider({ children }) {
     sendOpenAIMessage,
     checkOpenAIAnswer,
     getNextOpenAIQuestion,
-    resetOpenAIChat
+    resetOpenAIChat,
+    fetchSharedContents,
+    fetchSharedContentById,
+    createSharedContent,
+    updateSharedContent,
+    deleteSharedContent,
+    getImageElementInfo
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

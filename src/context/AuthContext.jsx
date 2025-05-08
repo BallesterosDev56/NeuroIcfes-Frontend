@@ -57,7 +57,14 @@ export const AuthProvider = ({ children }) => {
   // Función para actualizar el perfil del usuario
   const updateUserProfile = async (profileData) => {
     try {
-      const updatedProfile = await getUserProfile(currentUser.uid);
+      // Check if we have a uid from profileData or currentUser
+      const uid = profileData?.uid || (currentUser?.uid);
+      
+      if (!uid) {
+        throw new Error('No user ID available to update profile');
+      }
+      
+      const updatedProfile = await getUserProfile(uid);
       setUserProfile(updatedProfile);
       setRequiresProfile(!updatedProfile || !updatedProfile.profileCompleted);
       

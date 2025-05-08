@@ -73,6 +73,29 @@ class ProgressService {
     }
   }
 
+  /**
+   * Reset user's answered questions progress
+   * @returns {Promise<Object>} - Response from the server
+   */
+  async resetProgress() {
+    try {
+      const response = await fetch(`${API_URL}/progress/reset`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      
+      return await response.json();
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
   handleError(error) {
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
       return new Error('No response from server');

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { AppProvider } from '../../context/AppContext';
-import { BrainCircuit, BookOpen, LogOut } from 'lucide-react';
+import { BrainCircuit, BookOpen, LogOut, Layers } from 'lucide-react';
 import QuestionDashboard from '../../components/Admin/QuestionDashboard';
+import SharedContentDashboard from '../../components/Admin/SharedContentDashboard';
 import { getAllUsers } from '../../services/userService';
 
 export const AdminDashboard = () => {
@@ -42,6 +43,8 @@ export const AdminDashboard = () => {
     switch (activeSection) {
       case 'questions':
         return <QuestionDashboard />;
+      case 'sharedContent':
+        return <SharedContentDashboard />;
       case 'dashboard':
       default:
         return (
@@ -133,6 +136,15 @@ export const AdminDashboard = () => {
               >
                 <BookOpen className="h-5 w-5 mr-3" />
                 Preguntas
+              </button>
+              <button
+                onClick={() => setActiveSection('sharedContent')}
+                className={`flex items-center w-full px-4 py-2 text-white rounded-lg ${
+                  activeSection === 'sharedContent' ? 'bg-blue-700' : 'hover:bg-blue-700'
+                }`}
+              >
+                <Layers className="h-5 w-5 mr-3" />
+                Contenido Compartido
               </button>
             </nav>
 

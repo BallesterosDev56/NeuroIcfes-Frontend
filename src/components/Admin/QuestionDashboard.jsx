@@ -9,7 +9,10 @@ import {
   X,
   Book,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Link,
+  FileText,
+  Image
 } from 'lucide-react';
 
 const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }) => {
@@ -75,7 +78,18 @@ const SuccessModal = ({ isOpen, onClose, title, message }) => {
 };
 
 const QuestionDashboard = () => {
-  const { questions, loading, error, fetchQuestions, createQuestion, updateQuestion, deleteQuestion } = useApp();
+  const { 
+    questions, 
+    loading, 
+    error, 
+    fetchQuestions, 
+    createQuestion, 
+    updateQuestion, 
+    deleteQuestion, 
+    fetchSharedContents, 
+    sharedContents 
+  } = useApp();
+  
   const [selectedSubject, setSelectedSubject] = useState('matematicas');
   const [selectedDifficulty, setSelectedDifficulty] = useState('facil');
   const [isAddingQuestion, setIsAddingQuestion] = useState(false);
@@ -92,7 +106,10 @@ const QuestionDashboard = () => {
     options: ['', '', '', ''],
     correctAnswer: 0,
     difficulty: 'facil',
-    tags: []
+    tags: [],
+    questionType: 'simple',
+    sharedContentId: '',
+    position: 1
   });
 
   useEffect(() => {
@@ -111,6 +128,18 @@ const QuestionDashboard = () => {
     };
     loadQuestions();
   }, [selectedSubject, selectedDifficulty, fetchQuestions]);
+
+  // Cargar contenidos compartidos cuando el componente se monta
+  useEffect(() => {
+    const loadSharedContents = async () => {
+      try {
+        await fetchSharedContents(selectedSubject);
+      } catch (error) {
+        console.error('Error loading shared contents:', error);
+      }
+    };
+    loadSharedContents();
+  }, [fetchSharedContents, selectedSubject]);
 
   const validateForm = () => {
     const errors = [];
@@ -133,6 +162,21 @@ const QuestionDashboard = () => {
     
     if (!formData.difficulty) {
       errors.push('Debe seleccionar un nivel de dificultad');
+    }
+
+    if (!formData.questionType) {
+      errors.push('Debe seleccionar un tipo de pregunta');
+    }
+
+    // Validaciones específicas para preguntas con contenido compartido
+    if (formData.questionType !== 'simple') {
+      if (!formData.sharedContentId) {
+        errors.push('Debe seleccionar un contenido compartido');
+      }
+      
+      if (!formData.position || formData.position < 1) {
+        errors.push('La posición debe ser un número mayor a 0');
+      }
     }
     
     return errors;
@@ -168,7 +212,10 @@ const QuestionDashboard = () => {
       options: ['', '', '', ''],
       correctAnswer: 0,
       difficulty: 'facil',
-      tags: []
+      tags: [],
+      questionType: 'simple',
+      sharedContentId: '',
+      position: 1
     });
     setIsAddingQuestion(false);
     setEditingQuestion(null);
@@ -183,7 +230,10 @@ const QuestionDashboard = () => {
         options: question.options.map(opt => opt.text),
         correctAnswer: question.options.findIndex(opt => opt.isCorrect),
         difficulty: question.difficulty,
-        tags: question.tags || []
+        tags: question.tags || [],
+        questionType: question.questionType || 'simple',
+        sharedContentId: question.sharedContentId || '',
+        position: question.position || 1
       });
       setIsAddingQuestion(true);
     } catch (error) {
@@ -267,8 +317,15 @@ const QuestionDashboard = () => {
         questionText: formData.questionText.trim(),
         options,
         difficulty: formData.difficulty,
-        tags: formData.tags || []
+        tags: formData.tags || [],
+        questionType: formData.questionType
       };
+
+      // Añadir campos relacionados con contenido compartido solo si es necesario
+      if (formData.questionType !== 'simple') {
+        questionData.sharedContentId = formData.sharedContentId;
+        questionData.position = parseInt(formData.position);
+      }
 
       if (editingQuestion) {
         console.log('Updating question:', editingQuestion._id, questionData);
@@ -295,6 +352,24 @@ const QuestionDashboard = () => {
         title: 'Error',
         message: 'Error al guardar la pregunta. Por favor, verifica todos los campos.'
       });
+    }
+  };
+
+  // Obtener el nombre del contenido compartido por ID
+  const getSharedContentTitle = (id) => {
+    const content = sharedContents.find(content => content._id === id);
+    return content ? content.title : 'Contenido desconocido';
+  };
+
+  // Renderizar ícono según el tipo de pregunta
+  const renderQuestionTypeIcon = (type) => {
+    switch (type) {
+      case 'shared-text':
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'image-based':
+        return <Image className="h-4 w-4 text-green-500" />;
+      default:
+        return null;
     }
   };
 
@@ -369,7 +444,7 @@ const QuestionDashboard = () => {
             <option value="matematicas">Matemáticas</option>
             <option value="ciencias">Ciencias</option>
             <option value="sociales">Sociales</option>
-            <option value="lectura">Lectura Crítica</option>
+            <option value="lenguaje">Lectura Crítica</option>
             <option value="ingles">Inglés</option>
           </select>
         </div>
@@ -406,6 +481,70 @@ const QuestionDashboard = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4">
+              {/* Tipo de pregunta */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Pregunta
+                </label>
+                <select
+                  name="questionType"
+                  value={formData.questionType}
+                  onChange={handleInputChange}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                >
+                  <option value="simple">Pregunta Simple</option>
+                  <option value="shared-text">Contenido Compartido - Texto</option>
+                  <option value="image-based">Contenido Compartido - Imagen</option>
+                </select>
+              </div>
+
+              {/* Campos específicos para contenido compartido */}
+              {formData.questionType !== 'simple' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contenido Compartido
+                    </label>
+                    <select
+                      name="sharedContentId"
+                      value={formData.sharedContentId}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    >
+                      <option value="">Seleccione un contenido</option>
+                      {sharedContents
+                        .filter(content => content.subject === selectedSubject)
+                        .map(content => (
+                          <option key={content._id} value={content._id}>
+                            {content.title} ({content.contentType})
+                          </option>
+                        ))
+                      }
+                    </select>
+                    {sharedContents.filter(content => content.subject === selectedSubject).length === 0 && (
+                      <p className="mt-1 text-sm text-yellow-600">
+                        No hay contenidos compartidos disponibles para esta materia.
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Posición en el Contenido
+                    </label>
+                    <input
+                      type="number"
+                      name="position"
+                      value={formData.position}
+                      onChange={handleInputChange}
+                      min="1"
+                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      placeholder="Posición (1, 2, 3...)"
+                    />
+                  </div>
+                </>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700">
                   Pregunta
@@ -487,7 +626,24 @@ const QuestionDashboard = () => {
               <li key={question._id} className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{question.questionText}</p>
+                    <div className="flex items-center">
+                      {question.questionType && question.questionType !== 'simple' && (
+                        <div className="mr-2 flex items-center">
+                          {renderQuestionTypeIcon(question.questionType)}
+                          {question.sharedContentId && (
+                            <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                              {getSharedContentTitle(question.sharedContentId)}
+                            </span>
+                          )}
+                          {question.position && (
+                            <span className="ml-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                              Pos: {question.position}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <p className="text-sm font-medium text-gray-900">{question.questionText}</p>
+                    </div>
                     <div className="mt-2 flex items-center text-sm text-gray-500">
                       <span className="mr-4">Dificultad: {question.difficulty}</span>
                       <span>Materia: {question.subject}</span>
