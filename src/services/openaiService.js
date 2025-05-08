@@ -87,7 +87,12 @@ class OpenAIService {
         throw new Error(errorData.message || 'Network response was not ok');
       }
       
-      return await response.json();
+      const data = await response.json();
+      return {
+        isCorrect: data.isCorrect,
+        explanation: data.explanation || 'No hay explicación disponible.',
+        messages: data.messages || []
+      };
     } catch (error) {
       throw this.handleError(error);
     }

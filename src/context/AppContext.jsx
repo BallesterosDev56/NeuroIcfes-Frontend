@@ -19,7 +19,8 @@ const initialState = {
     noQuestionsAvailable: false,
     sharedContent: null,
     totalQuestions: 0,
-    currentQuestionNumber: 1
+    currentQuestionNumber: 1,
+    explanation: null
   },
   loading: {
     questions: false,
@@ -145,7 +146,9 @@ function appReducer(state, action) {
           noQuestionsAvailable: action.payload.noQuestionsAvailable || false,
           sharedContent: action.payload.sharedContent || null,
           totalQuestions: action.payload.totalQuestions || 0,
-          currentQuestionNumber: action.payload.currentQuestionNumber || 1
+          currentQuestionNumber: action.payload.currentQuestionNumber || 1,
+          isCorrect: action.payload.isCorrect || false,
+          explanation: action.payload.explanation || null
         },
         currentQuestion: action.payload.question || state.currentQuestion
       };
@@ -238,6 +241,30 @@ function appReducer(state, action) {
         ...state,
         currentSharedContent: action.payload,
         loading: { ...state.loading, sharedContent: false }
+      };
+    case 'OPENAI_CHECK_ANSWER_START':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: true },
+        error: { ...state.error, openai: null }
+      };
+    case 'OPENAI_CHECK_ANSWER_SUCCESS':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        openaiChat: {
+          ...state.openaiChat,
+          messages: action.payload.messages || [],
+          isCorrect: action.payload.isCorrect,
+          explanation: action.payload.explanation
+        },
+        currentQuestion: action.payload.question || state.currentQuestion
+      };
+    case 'OPENAI_CHECK_ANSWER_ERROR':
+      return {
+        ...state,
+        loading: { ...state.loading, openai: false },
+        error: { ...state.error, openai: action.payload }
       };
     default:
       return state;
@@ -356,13 +383,20 @@ export function AppProvider({ children }) {
   }, []);
   
   const checkOpenAIAnswer = useCallback(async (questionId, answer) => {
-    dispatch({ type: 'OPENAI_MESSAGE_START' });
+    dispatch({ type: 'OPENAI_CHECK_ANSWER_START' });
     try {
       const response = await OpenAIService.checkAnswer(questionId, answer);
-      dispatch({ type: 'OPENAI_MESSAGE_SUCCESS', payload: response });
+      dispatch({ 
+        type: 'OPENAI_CHECK_ANSWER_SUCCESS', 
+        payload: {
+          isCorrect: response.isCorrect,
+          explanation: response.explanation,
+          messages: response.messages || []
+        }
+      });
       return response;
     } catch (error) {
-      dispatch({ type: 'OPENAI_MESSAGE_ERROR', payload: error.message });
+      dispatch({ type: 'OPENAI_CHECK_ANSWER_ERROR', payload: error.message });
       throw error;
     }
   }, []);
