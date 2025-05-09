@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useReducer, useRef } 
 import { BookOpen, ArrowRight, Send, RefreshCw } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import SharedContentViewer from '../SharedContent/SharedContentViewer';
+import { toast } from 'react-toastify';
 
 const SUBJECTS = ['matematicas', 'ciencias', 'sociales', 'lenguaje', 'ingles'];
 const QUESTIONS_PER_SESSION = 10;
@@ -202,6 +203,12 @@ const PracticeSection = () => {
 
   // Definir una función para manejar la transición a la siguiente pregunta
   const handleTransitionToNextQuestion = useCallback(() => {
+    // Evitar múltiples transiciones
+    if (transitioningRef.current) return;
+    
+    // Marcar que estamos en transición
+    transitioningRef.current = true;
+    
     dispatch({ type: 'RESET_FOR_NEXT_QUESTION' });
     dispatch({ type: 'SET_SUBMITTING', payload: true });
     
@@ -254,6 +261,16 @@ const PracticeSection = () => {
           isError: true 
         };
         dispatch({ type: 'ADD_LOCAL_MESSAGE', payload: errorMsg });
+        
+        // Mostrar notificación toast
+        toast.error('Error al cargar la siguiente pregunta. Por favor, intenta seleccionar otra materia.', {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
       } finally {
         dispatch({ type: 'SET_SUBMITTING', payload: false });
         // Resetear el flag de transición
@@ -286,7 +303,7 @@ const PracticeSection = () => {
 
   // Watch for correct answers from OpenAI and update UI state
   useEffect(() => {
-    if (openaiChat.isCorrect && !transitioningRef.current) {
+    if (openaiChat.isCorrect && !transitioningRef.current && !waitingForNextQuestion) {
       // Marcar que estamos en transición para evitar múltiples ejecuciones
       transitioningRef.current = true;
       
@@ -305,6 +322,17 @@ const PracticeSection = () => {
           type: 'ADD_LOCAL_MESSAGE', 
           payload: correctMsg
         });
+        
+        // Mostrar notificación toast de éxito
+        toast.success('¡Respuesta correcta! 🎉', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          icon: "🏆"
+        });
       }
       
       // Scroll al final para que el usuario vea el mensaje
@@ -313,7 +341,7 @@ const PracticeSection = () => {
       // Desactivar flag de transición - ahora la transición es manual
       transitioningRef.current = false;
     }
-  }, [openaiChat.isCorrect, currentQuestion, localMessages, scrollToBottom, dispatch]);
+  }, [openaiChat.isCorrect, currentQuestion, localMessages, scrollToBottom, dispatch, waitingForNextQuestion]);
 
   // Inicializar sesión
   useEffect(() => {
@@ -342,6 +370,9 @@ const PracticeSection = () => {
 
   // Sincronizar mensajes del contexto con el estado local para estabilidad
   useEffect(() => {
+    // Evitar actualizar mensajes si estamos esperando la siguiente pregunta
+    if (waitingForNextQuestion) return;
+    
     if (openaiChat.messages && openaiChat.messages.length > 0) {
       // Filtrar mensajes de sistema
       const displayMessages = openaiChat.messages.filter(msg => msg.role !== 'system');
@@ -362,7 +393,8 @@ const PracticeSection = () => {
             return {
               ...msg,
               isThinking: existingMsg.isThinking || false,
-              isError: existingMsg.isError || false
+              isError: existingMsg.isError || false,
+              isCorrect: existingMsg.isCorrect || false
             };
           }
           
@@ -372,7 +404,7 @@ const PracticeSection = () => {
         dispatch({ type: 'UPDATE_LOCAL_MESSAGES', payload: updatedMessages });
       }
     }
-  }, [openaiChat.messages, localMessages]);
+  }, [openaiChat.messages, localMessages, waitingForNextQuestion]);
 
   // Scroll cuando cambian los mensajes
   useEffect(() => {
@@ -395,6 +427,48 @@ const PracticeSection = () => {
       dispatch({ type: 'NO_QUESTIONS_AVAILABLE' });
     }
   }, [openaiChat.noQuestionsAvailable]);
+
+  // Mostrar errores como toast
+  useEffect(() => {
+    if (error.openai) {
+      toast.error(
+        <div>
+          <p className="font-medium mb-2">Error: {error.openai}</p>
+          <button
+            onClick={() => {
+              // Limpiar cualquier timeout pendiente
+              if (nextQuestionTimeoutRef.current) {
+                clearTimeout(nextQuestionTimeoutRef.current);
+                nextQuestionTimeoutRef.current = null;
+              }
+              
+              // Resetear flags
+              transitioningRef.current = false;
+              
+              resetOpenAIChat();
+              dispatch({ type: 'UPDATE_LOCAL_MESSAGES', payload: [] });
+              startOpenAIChat(selectedSubject, ['General']);
+              
+              // Cerrar el toast
+              toast.dismiss();
+            }}
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: false,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+        }
+      );
+    }
+  }, [error.openai, resetOpenAIChat, selectedSubject, startOpenAIChat, dispatch]);
 
   // Render message bubble for chat with improved feedback for correct answers
   const MessageBubble = ({ message, isUser, isCorrectAnswer, isError, isTransitionMessage }) => (
@@ -436,7 +510,13 @@ const PracticeSection = () => {
 
   // Handle sending a message to the chat
   const handleAnswerSubmit = async () => {
-    if (!currentQuestion || !userAnswer.trim() || isSubmitting) return;
+    // No permitir enviar respuesta si:
+    // - No hay pregunta actual
+    // - No hay texto en la respuesta
+    // - Se está enviando una respuesta
+    // - Ya se respondió correctamente
+    // - Estamos esperando la siguiente pregunta
+    if (!currentQuestion || !userAnswer.trim() || isSubmitting || openaiChat.isCorrect || waitingForNextQuestion) return;
     
     dispatch({ type: 'SET_SUBMITTING', payload: true });
     
@@ -475,8 +555,8 @@ const PracticeSection = () => {
       });
       
       // Check if the answer is correct
-      // Only if it's likely an answer (not a question)
-      if (!userMessage.includes('?') && userMessage.length < 100) {
+      // Only if it's likely an answer (not a question) and we haven't already marked it as correct
+      if (!userMessage.includes('?') && userMessage.length < 100 && !openaiChat.isCorrect) {
         try {
           await retryAsync(async () => {
             await checkOpenAIAnswer(currentQuestion._id, userMessage);
@@ -508,6 +588,16 @@ const PracticeSection = () => {
         type: 'ERROR_STATE', 
         payload: error
       });
+      
+      // Mostrar notificación toast
+      toast.error('Error al enviar tu mensaje. Por favor, intenta de nuevo.', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } finally {
       dispatch({ type: 'SET_SUBMITTING', payload: false });
     }
@@ -515,6 +605,11 @@ const PracticeSection = () => {
 
   // Handle option selection
   const handleOptionSelect = async (optionText) => {
+    // No permitir seleccionar opciones si:
+    // - No hay pregunta actual
+    // - Se está enviando una respuesta
+    // - Ya se respondió correctamente (openaiChat.isCorrect)
+    // - Estamos esperando la siguiente pregunta
     if (!currentQuestion || isSubmitting || openaiChat.isCorrect || waitingForNextQuestion) return;
     
     // Set the selected option
@@ -555,13 +650,15 @@ const PracticeSection = () => {
       });
       
       // Para múltiple opción, verificar siempre si la respuesta es correcta
-      try {
-        await retryAsync(async () => {
-          await checkOpenAIAnswer(currentQuestion._id, optionText);
-        });
-      } catch (error) {
-        console.warn('Error checking option answer:', error);
-        // Continuar incluso si falla la verificación
+      if (!openaiChat.isCorrect) { // Solo verificar si aún no se ha marcado como correcta
+        try {
+          await retryAsync(async () => {
+            await checkOpenAIAnswer(currentQuestion._id, optionText);
+          });
+        } catch (error) {
+          console.warn('Error checking option answer:', error);
+          // Continuar incluso si falla la verificación
+        }
       }
     } catch (error) {
       console.error('Error submitting option:', error);
@@ -584,6 +681,16 @@ const PracticeSection = () => {
       dispatch({ 
         type: 'ERROR_STATE', 
         payload: error
+      });
+      
+      // Mostrar notificación toast
+      toast.error('Error al procesar tu selección. Por favor, intenta de nuevo.', {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
       });
     } finally {
       dispatch({ type: 'SET_SUBMITTING', payload: false });
@@ -754,7 +861,15 @@ const PracticeSection = () => {
                     index === localMessages.length - 1 &&
                     !msg.isCorrect; // No es un mensaje de transición explícito
                   
+                  // Evitar renderizar mensajes duplicados
+                  const isDuplicate = index > 0 && 
+                    msg.role === localMessages[index - 1].role && 
+                    msg.content === localMessages[index - 1].content;
+                  
                   const isTransitionMessage = msg.isCorrect === true;
+                  
+                  // No renderizar mensajes duplicados
+                  if (isDuplicate) return null;
                   
                   return (
                     <MessageBubble 
@@ -781,22 +896,30 @@ const PracticeSection = () => {
                 onChange={(e) => dispatch({ type: 'SET_USER_ANSWER', payload: e.target.value })}
                 placeholder={waitingForNextQuestion ? "Avanza a la siguiente pregunta..." : "Escribe tu respuesta o pregunta..."}
                 className={`flex-1 p-3 border ${waitingForNextQuestion ? 'border-green-300 bg-green-50' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
-                disabled={isSubmitting || openaiChat.isCorrect || waitingForNextQuestion}
+                disabled={isSubmitting || waitingForNextQuestion}
                 onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && !waitingForNextQuestion && handleAnswerSubmit()}
               />
-              <button
-                onClick={waitingForNextQuestion ? handleTransitionToNextQuestion : handleAnswerSubmit}
-                disabled={waitingForNextQuestion ? false : (isSubmitting || !userAnswer.trim())}
-                className={`p-3 ${waitingForNextQuestion ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm`}
-              >
-                {isSubmitting ? (
-                  <RefreshCw size={20} className="animate-spin" />
-                ) : waitingForNextQuestion ? (
+              {waitingForNextQuestion ? (
+                <button
+                  onClick={handleTransitionToNextQuestion}
+                  disabled={isSubmitting}
+                  className="p-3 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
+                >
                   <ArrowRight size={20} />
-                ) : (
-                  <Send size={20} />
-                )}
-              </button>
+                </button>
+              ) : (
+                <button
+                  onClick={handleAnswerSubmit}
+                  disabled={isSubmitting || !userAnswer.trim()}
+                  className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
+                >
+                  {isSubmitting ? (
+                    <RefreshCw size={20} className="animate-spin" />
+                  ) : (
+                    <Send size={20} />
+                  )}
+                </button>
+              )}
             </div>
             <div className="mt-3 flex justify-between items-center">
               <div className="text-xs text-gray-500 flex items-center">
@@ -945,31 +1068,6 @@ const PracticeSection = () => {
           ))}
         </div>
       </div>
-
-      {error.openai ? (
-        <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-red-700 mb-4">
-          <p className="font-medium">Error: {error.openai}</p>
-          <button
-            onClick={() => {
-              // Limpiar cualquier timeout pendiente
-              if (nextQuestionTimeoutRef.current) {
-                clearTimeout(nextQuestionTimeoutRef.current);
-                nextQuestionTimeoutRef.current = null;
-              }
-              
-              // Resetear flags
-              transitioningRef.current = false;
-              
-              resetOpenAIChat();
-              dispatch({ type: 'UPDATE_LOCAL_MESSAGES', payload: [] });
-              startOpenAIChat(selectedSubject, ['General']);
-            }}
-            className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm transition-colors"
-          >
-            Reintentar
-          </button>
-        </div>
-      ) : null}
 
       {renderContent()}
     </div>
