@@ -239,6 +239,18 @@ const PracticeSection = () => {
         });
         
         if (response.noQuestionsAvailable) {
+          // Establecer el estado de "no hay más preguntas" y evitar mostrar múltiples notificaciones
+          if (!toast.isActive('no-questions-available')) {
+            toast.info('Has completado todas las preguntas disponibles en esta materia.', {
+              position: "top-right",
+              autoClose: 3000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              toastId: 'no-questions-available',
+            });
+          }
           dispatch({ type: 'NO_QUESTIONS_AVAILABLE' });
         } else {
           // Sync with new messages
@@ -262,15 +274,18 @@ const PracticeSection = () => {
         };
         dispatch({ type: 'ADD_LOCAL_MESSAGE', payload: errorMsg });
         
-        // Mostrar notificación toast
-        toast.error('Error al cargar la siguiente pregunta. Por favor, intenta seleccionar otra materia.', {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
+        // Mostrar notificación toast de error
+        if (!loading.openai && !toast.isActive('next-question-error')) {
+          toast.error('Error al cargar la siguiente pregunta. Por favor, intenta seleccionar otra materia.', {
+            position: "top-right",
+            autoClose: 3000, // Cerrar automáticamente después de 3 segundos
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            toastId: 'next-question-error', // ID único para evitar duplicados
+          });
+        }
       } finally {
         dispatch({ type: 'SET_SUBMITTING', payload: false });
         // Resetear el flag de transición
@@ -279,13 +294,13 @@ const PracticeSection = () => {
     };
     
     getNextQuestionAsync();
-  }, [selectedSubject, currentDifficulty, getNextOpenAIQuestion, answeredQuestions.length, openaiChat, QUESTIONS_PER_SESSION, dispatch]);
+  }, [selectedSubject, currentDifficulty, getNextOpenAIQuestion, answeredQuestions.length, openaiChat, QUESTIONS_PER_SESSION, dispatch, loading.openai]);
 
   // Crear un alias para la función de transición para mantener compatibilidad
   const handleNextQuestion = handleTransitionToNextQuestion;
 
   // Actualizar el botón de cambio de materia para usar la nueva función auxiliar
-  const handleSubjectChange = useCallback((subject) => {
+  const handleSubjectChange = useCallback((subject, sharedContentId = null) => {
     // Limpiar cualquier timeout pendiente
     if (nextQuestionTimeoutRef.current) {
       clearTimeout(nextQuestionTimeoutRef.current);
@@ -295,11 +310,21 @@ const PracticeSection = () => {
     // Resetear flags
     transitioningRef.current = false;
     
+    // Limpiar todas las notificaciones toast activas
+    toast.dismiss();
+    
     dispatch({ type: 'SET_SUBJECT', payload: subject });
     // También limpiar los mensajes locales explícitamente
     dispatch({ type: 'UPDATE_LOCAL_MESSAGES', payload: [] });
     resetOpenAIChat();
-  }, [resetOpenAIChat]);
+    
+    // Iniciar una nueva sesión con el contenido compartido si se proporciona
+    if (sharedContentId) {
+      startOpenAIChat(subject, ['General'], sharedContentId);
+    } else {
+      startOpenAIChat(subject, ['General']);
+    }
+  }, [resetOpenAIChat, startOpenAIChat]);
 
   // Watch for correct answers from OpenAI and update UI state
   useEffect(() => {
@@ -323,16 +348,19 @@ const PracticeSection = () => {
           payload: correctMsg
         });
         
-        // Mostrar notificación toast de éxito
-        toast.success('¡Respuesta correcta! 🎉', {
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          icon: "🏆"
-        });
+        // Mostrar notificación toast de éxito solo una vez
+        if (!toast.isActive('correct-answer')) {
+          toast.success('¡Respuesta correcta! 🎉', {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            icon: "🏆",
+            toastId: 'correct-answer', // ID único para evitar duplicados
+          });
+        }
       }
       
       // Scroll al final para que el usuario vea el mensaje
@@ -424,13 +452,16 @@ const PracticeSection = () => {
   // Watch for no questions available
   useEffect(() => {
     if (openaiChat.noQuestionsAvailable) {
+      // Solo despachar el cambio de estado sin mostrar notificaciones adicionales
+      // Las notificaciones se manejan en handleTransitionToNextQuestion
       dispatch({ type: 'NO_QUESTIONS_AVAILABLE' });
     }
-  }, [openaiChat.noQuestionsAvailable]);
+  }, [openaiChat.noQuestionsAvailable, dispatch]);
 
   // Mostrar errores como toast
   useEffect(() => {
-    if (error.openai) {
+    // No mostrar el error si estamos cargando o si ya existe un toast con este ID
+    if (error.openai && !loading.openai && !toast.isActive('openai-error')) {
       toast.error(
         <div>
           <p className="font-medium mb-2">Error: {error.openai}</p>
@@ -459,21 +490,22 @@ const PracticeSection = () => {
         </div>,
         {
           position: "top-right",
-          autoClose: false,
+          autoClose: 3000, // Cerrar automáticamente después de 3 segundos
           hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: true,
+          closeOnClick: true, // Permitir cerrar al hacer clic
+          pauseOnHover: true, // Pausar el tiempo de cierre al pasar el ratón
+          draggable: true, // Permitir arrastrar la notificación
           progress: undefined,
+          toastId: 'openai-error', // ID único para evitar duplicados
         }
       );
     }
-  }, [error.openai, resetOpenAIChat, selectedSubject, startOpenAIChat, dispatch]);
+  }, [error.openai, loading.openai, resetOpenAIChat, selectedSubject, startOpenAIChat, dispatch]);
 
   // Render message bubble for chat with improved feedback for correct answers
   const MessageBubble = ({ message, isUser, isCorrectAnswer, isError, isTransitionMessage }) => (
-    <div className={`mb-4 ${isUser ? 'text-right' : ''}`}>
-      <div className={`inline-block p-3 rounded-lg max-w-[85%] ${
+    <div className={`mb-2 ${isUser ? 'text-right' : ''}`}>
+      <div className={`inline-block p-2 rounded-lg max-w-[85%] ${
         isUser 
           ? 'bg-indigo-100 text-indigo-800' 
           : isCorrectAnswer || isTransitionMessage
@@ -483,26 +515,26 @@ const PracticeSection = () => {
               : 'bg-gray-100 text-gray-800'
       }`}>
         {(isCorrectAnswer || isTransitionMessage) && !isUser && (
-          <div className="flex items-center mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+          <div className="flex items-center mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-600" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <span className="font-medium text-green-700">
+            <span className="font-medium text-green-700 text-xs">
               {isTransitionMessage ? 'Avanzando...' : 'Respuesta correcta'}
             </span>
           </div>
         )}
         {isError && !isUser && (
-          <div className="flex items-center mb-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+          <div className="flex items-center mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-red-600" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <span className="font-medium text-red-700">Error</span>
+            <span className="font-medium text-red-700 text-xs">Error</span>
           </div>
         )}
         <p className="text-sm whitespace-pre-line break-words">{message}</p>
       </div>
-      <div className={`text-xs text-gray-400 mt-1 ${isUser ? 'text-right' : ''}`}>
+      <div className={`text-xs text-gray-400 mt-0.5 ${isUser ? 'text-right' : ''}`}>
         {isUser ? 'Tú' : 'Tutor ICFES'}
       </div>
     </div>
@@ -589,15 +621,18 @@ const PracticeSection = () => {
         payload: error
       });
       
-      // Mostrar notificación toast
-      toast.error('Error al enviar tu mensaje. Por favor, intenta de nuevo.', {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      // Mostrar notificación toast solo si no estamos en proceso de carga
+      if (!loading.openai && !toast.isActive('send-message-error')) {
+        toast.error('Error al enviar tu mensaje. Por favor, intenta de nuevo.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          toastId: 'send-message-error', // ID único para evitar duplicados
+        });
+      }
     } finally {
       dispatch({ type: 'SET_SUBMITTING', payload: false });
     }
@@ -683,15 +718,18 @@ const PracticeSection = () => {
         payload: error
       });
       
-      // Mostrar notificación toast
-      toast.error('Error al procesar tu selección. Por favor, intenta de nuevo.', {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      // Mostrar notificación toast solo si no estamos en proceso de carga
+      if (!loading.openai && !toast.isActive('option-select-error')) {
+        toast.error('Error al procesar tu selección. Por favor, intenta de nuevo.', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          toastId: 'option-select-error', // ID único para evitar duplicados
+        });
+      }
     } finally {
       dispatch({ type: 'SET_SUBMITTING', payload: false });
     }
@@ -701,19 +739,19 @@ const PracticeSection = () => {
   const renderContent = () => {
     if (sessionState === 'no-questions') {
       return (
-        <div className="text-center p-6 bg-white rounded-lg shadow-sm">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-full mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="text-center p-5 bg-white rounded-lg shadow-sm">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-yellow-100 rounded-full mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <h3 className="text-xl font-medium text-gray-800 mb-3">¡Has completado todas las preguntas!</h3>
-          <p className="text-gray-600 mb-6 max-w-lg mx-auto">
+          <p className="text-gray-600 mb-5 max-w-lg mx-auto">
             Ya has completado todas las preguntas disponibles de <span className="font-medium capitalize">{selectedSubject}</span> en 
             nivel <span className="font-medium capitalize">{currentDifficulty}</span>. 
             ¿Te gustaría probar otra materia?
           </p>
-          <div className="flex flex-wrap justify-center gap-3 mb-6">
+          <div className="flex flex-wrap justify-center gap-2 mb-5">
             {SUBJECTS.filter(s => s !== selectedSubject).map(subject => (
               <button
                 key={subject}
@@ -724,7 +762,7 @@ const PracticeSection = () => {
               </button>
             ))}
           </div>
-          <div className="mb-4">
+          <div className="mb-3">
             <p className="text-gray-700 font-medium mb-2">
               ¿Quieres volver a intentar con {selectedSubject}?
             </p>
@@ -744,17 +782,17 @@ const PracticeSection = () => {
 
     if (sessionState === 'completed') {
       return (
-        <div className="text-center p-8 bg-white rounded-lg shadow-sm">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="text-center p-6 bg-white rounded-lg shadow-sm">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <h3 className="text-2xl font-bold mb-2 text-gray-800">¡Práctica completada!</h3>
-          <p className="text-lg text-gray-600 mb-4">Has completado las {QUESTIONS_PER_SESSION} preguntas de esta sesión.</p>
+          <p className="text-lg text-gray-600 mb-3">Has completado las {QUESTIONS_PER_SESSION} preguntas de esta sesión.</p>
           
-          <div className="bg-indigo-50 rounded-lg p-5 mb-6 inline-block">
-            <div className="flex items-center justify-center mb-2">
+          <div className="bg-indigo-50 rounded-lg p-4 mb-5 inline-block">
+            <div className="flex items-center justify-center mb-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
@@ -768,10 +806,10 @@ const PracticeSection = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 max-w-lg mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5 max-w-lg mx-auto">
             <button
               onClick={() => handleSubjectChange(selectedSubject)}
-              className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors flex items-center justify-center"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors flex items-center justify-center"
             >
               <RefreshCw size={18} className="mr-2" />
               Reiniciar {selectedSubject}
@@ -780,7 +818,7 @@ const PracticeSection = () => {
             <div className="relative">
               <button
                 onClick={() => document.getElementById('otherSubjectsDropdown').classList.toggle('hidden')}
-                className="w-full px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md transition-colors flex items-center justify-center"
+                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md transition-colors flex items-center justify-center"
               >
                 Cambiar materia
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
@@ -809,10 +847,10 @@ const PracticeSection = () => {
     }
     
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Chat Panel - Now given more prominence with 2 columns */}
-        <div className="md:col-span-2 bg-white rounded-lg shadow-md flex flex-col h-[650px] border border-indigo-100">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center bg-indigo-50">
+        <div className="md:col-span-2 bg-white rounded-lg shadow-sm flex flex-col h-[650px] border border-gray-100">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center bg-indigo-50">
             <div className={`w-3 h-3 ${isSubmitting ? 'bg-yellow-500' : 'bg-green-500'} rounded-full mr-2`}></div>
             <span className="font-medium text-gray-800">
               {isSubmitting ? 'Tutor ICFES (escribiendo...)' : 'Tutor ICFES'}
@@ -822,13 +860,13 @@ const PracticeSection = () => {
           {/* Messages */}
           <div 
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-5 space-y-4 chat-messages"
+            className="flex-1 overflow-y-auto px-4 py-3 space-y-3 chat-messages"
           >
             {localMessages.length === 0 ? (
               <div className="flex justify-center items-center h-full">
                 <div className="text-center">
-                  <div className="mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                     </svg>
                   </div>
@@ -888,14 +926,14 @@ const PracticeSection = () => {
           </div>
           
           {/* Input - Enhanced styling */}
-          <div className="p-4 border-t border-gray-100 bg-white">
+          <div className="p-3 border-t border-gray-100 bg-white">
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={userAnswer}
                 onChange={(e) => dispatch({ type: 'SET_USER_ANSWER', payload: e.target.value })}
                 placeholder={waitingForNextQuestion ? "Avanza a la siguiente pregunta..." : "Escribe tu respuesta o pregunta..."}
-                className={`flex-1 p-3 border ${waitingForNextQuestion ? 'border-green-300 bg-green-50' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
+                className={`flex-1 p-2 border ${waitingForNextQuestion ? 'border-green-300 bg-green-50' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
                 disabled={isSubmitting || waitingForNextQuestion}
                 onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && !waitingForNextQuestion && handleAnswerSubmit()}
               />
@@ -903,7 +941,7 @@ const PracticeSection = () => {
                 <button
                   onClick={handleTransitionToNextQuestion}
                   disabled={isSubmitting}
-                  className="p-3 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
+                  className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
                 >
                   <ArrowRight size={20} />
                 </button>
@@ -911,7 +949,7 @@ const PracticeSection = () => {
                 <button
                   onClick={handleAnswerSubmit}
                   disabled={isSubmitting || !userAnswer.trim()}
-                  className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
+                  className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
                 >
                   {isSubmitting ? (
                     <RefreshCw size={20} className="animate-spin" />
@@ -921,7 +959,7 @@ const PracticeSection = () => {
                 </button>
               )}
             </div>
-            <div className="mt-3 flex justify-between items-center">
+            <div className="mt-2 flex justify-between items-center">
               <div className="text-xs text-gray-500 flex items-center">
                 <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">
                   {answeredQuestions.length}/{QUESTIONS_PER_SESSION} preguntas
@@ -940,17 +978,17 @@ const PracticeSection = () => {
         </div>
 
         {/* Question & Content Panel - Now with less prominence */}
-        <div className="md:col-span-1 bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+        <div className="md:col-span-1 bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
           {loading.openai && !currentQuestion ? (
             <div className="flex justify-center items-center h-40">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             </div>
           ) : currentQuestion ? (
-            <div>
+            <div className="flex flex-col h-full">
               {/* Shared Content */}
               {openaiChat.sharedContent && (
-                <div className="border-b border-gray-100">
-                  <div className="max-w-full overflow-x-auto">
+                <div className="border-b border-gray-100 flex-shrink-0">
+                  <div className="overflow-hidden">
                     <SharedContentViewer 
                       sharedContent={openaiChat.sharedContent}
                       currentQuestionNumber={openaiChat.currentQuestionNumber || 1}
@@ -961,9 +999,9 @@ const PracticeSection = () => {
               )}
                 
               {/* Question */}
-              <div className="p-4">
-                <div className="mb-4 bg-gray-50 rounded-lg border border-gray-200 p-3">
-                  <h3 className="text-base font-medium text-gray-900 mb-2">{currentQuestion.questionText}</h3>
+              <div className="p-3 flex-1 overflow-y-auto">
+                <div className="mb-3 bg-gray-50 rounded-lg border border-gray-200 p-3">
+                  <h3 className="text-base font-medium text-gray-900 mb-1">{currentQuestion.questionText}</h3>
                   <div className="flex items-center text-xs text-gray-600">
                     <BookOpen size={12} className="mr-1" />
                     <span className="capitalize">{selectedSubject}</span>
@@ -974,8 +1012,8 @@ const PracticeSection = () => {
                 
                 {/* Options */}
                 {currentQuestion.options && currentQuestion.options.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    <h4 className="text-xs font-medium text-gray-700 mb-2">Selecciona una opción:</h4>
+                  <div className="space-y-2 mb-3">
+                    <h4 className="text-xs font-medium text-gray-700 mb-1">Selecciona una opción:</h4>
                     {currentQuestion.options.map((option, index) => (
                       <button
                         key={index}
@@ -1014,19 +1052,19 @@ const PracticeSection = () => {
                 
                 {/* Correct Answer Indicator */}
                 {openaiChat.isCorrect && (
-                  <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-green-700 mb-3 text-sm">
-                    <div className="flex items-center mb-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                  <div className="p-2 bg-green-50 border border-green-100 rounded-lg text-green-700 mb-2 text-sm">
+                    <div className="flex items-center mb-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       <h3 className="font-medium text-green-800">¡Respuesta correcta!</h3>
                     </div>
                     
-                    <div className="flex justify-end mt-2">
+                    <div className="flex justify-end mt-1">
                       <button
                         onClick={handleTransitionToNextQuestion}
                         disabled={isSubmitting}
-                        className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center text-xs"
+                        className="px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center text-xs"
                       >
                         Siguiente
                         <ArrowRight size={14} className="ml-1" />
@@ -1037,7 +1075,7 @@ const PracticeSection = () => {
               </div>
             </div>
           ) : (
-            <div className="text-center p-6">
+            <div className="text-center p-4">
               <p className="text-gray-500">No se ha podido cargar la pregunta. Intenta seleccionar otra materia.</p>
             </div>
           )}
@@ -1047,16 +1085,16 @@ const PracticeSection = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h1 className="text-xl font-bold text-gray-900">Práctica ICFES</h1>
         
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1">
           {SUBJECTS.map((subject) => (
             <button
               key={subject}
               onClick={() => handleSubjectChange(subject)}
-              className={`px-3 py-1.5 rounded-md transition-all duration-200 text-sm ${
+              className={`px-3 py-1 rounded-md transition-all duration-200 text-sm ${
                 selectedSubject === subject
                 ? 'bg-indigo-600 text-white shadow-sm' 
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
