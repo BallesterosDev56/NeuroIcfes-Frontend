@@ -37,7 +37,8 @@ const initialPracticeState = {
   sessionStartTime: null,
   retryCount: 0,
   lastError: null,
-  localMessages: []
+  localMessages: [],
+  waitingForNextQuestion: false // Nueva propiedad para rastrear cuando se espera la siguiente pregunta
 };
 
 function practiceReducer(state, action) {
@@ -51,7 +52,9 @@ function practiceReducer(state, action) {
         score: 0,
         answeredQuestions: [],
         sessionState: 'chatting',
-        sessionStartTime: Date.now()
+        sessionStartTime: Date.now(),
+        localMessages: [],
+        waitingForNextQuestion: false
       };
     case 'START_SESSION':
       return {
@@ -69,7 +72,8 @@ function practiceReducer(state, action) {
         score: state.score + 1,
         answeredQuestions: action.payload && action.payload._id 
           ? [...state.answeredQuestions, action.payload._id]
-          : state.answeredQuestions
+          : state.answeredQuestions,
+        waitingForNextQuestion: true // Marcar que estamos esperando la siguiente pregunta
       };
     case 'ANSWER_INCORRECT':
       return {
@@ -110,7 +114,7 @@ function practiceReducer(state, action) {
         selectedOption: null,
         sessionStartTime: Date.now(),
         isSubmitting: false,
-        // No reseteamos localMessages aquí, se maneja explícitamente
+        waitingForNextQuestion: false // Resetear el estado de espera
       };
     case 'ERROR_STATE':
       return {
@@ -137,6 +141,11 @@ function practiceReducer(state, action) {
         sessionStartTime: Date.now(),
         isSubmitting: false,
         localMessages: []
+      };
+    case 'READY_FOR_NEXT_QUESTION':
+      return {
+        ...state,
+        readyForNextQuestion: true
       };
     default:
       return state;
@@ -180,7 +189,8 @@ const PracticeSection = () => {
     isSubmitting,
     sessionState,
     sessionStartTime,
-    localMessages
+    localMessages,
+    waitingForNextQuestion
   } = state;
 
   // Scroll to bottom of chat
@@ -282,10 +292,10 @@ const PracticeSection = () => {
       
       dispatch({ type: 'ANSWER_CORRECT', payload: currentQuestion });
       
-      // Mostrar mensaje de transición
+      // Solo registrar que la respuesta es correcta, sin avanzar automáticamente
       const correctMsg = { 
         role: 'assistant', 
-        content: '¡Respuesta correcta! Avanzando a la siguiente pregunta...',
+        content: '¡Respuesta correcta! Puedes continuar a la siguiente pregunta cuando estés listo.',
         isCorrect: true 
       };
       
@@ -300,20 +310,10 @@ const PracticeSection = () => {
       // Scroll al final para que el usuario vea el mensaje
       setTimeout(scrollToBottom, 50);
       
-      // Automatically move to next question after a short delay
-      // Guardamos el timeout en una ref para poder limpiarlo si es necesario
-      nextQuestionTimeoutRef.current = setTimeout(() => {
-        // Usar nuestra función auxiliar para la transición
-        handleNextQuestion();
-      }, 2000);
-      
-      return () => {
-        if (nextQuestionTimeoutRef.current) {
-          clearTimeout(nextQuestionTimeoutRef.current);
-        }
-      };
+      // Desactivar flag de transición - ahora la transición es manual
+      transitioningRef.current = false;
     }
-  }, [openaiChat.isCorrect, currentQuestion, localMessages, scrollToBottom, handleNextQuestion]);
+  }, [openaiChat.isCorrect, currentQuestion, localMessages, scrollToBottom, dispatch]);
 
   // Inicializar sesión
   useEffect(() => {
@@ -515,7 +515,7 @@ const PracticeSection = () => {
 
   // Handle option selection
   const handleOptionSelect = async (optionText) => {
-    if (!currentQuestion || isSubmitting || openaiChat.isCorrect) return;
+    if (!currentQuestion || isSubmitting || openaiChat.isCorrect || waitingForNextQuestion) return;
     
     // Set the selected option
     dispatch({ type: 'SET_SELECTED_OPTION', payload: optionText });
@@ -599,12 +599,12 @@ const PracticeSection = () => {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            </div>
-          <h3 className="text-xl font-medium text-gray-800 mb-2">No hay más preguntas disponibles</h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            Hemos agotado las preguntas de <span className="font-medium capitalize">{selectedSubject}</span> en 
+          </div>
+          <h3 className="text-xl font-medium text-gray-800 mb-3">¡Has completado todas las preguntas!</h3>
+          <p className="text-gray-600 mb-6 max-w-lg mx-auto">
+            Ya has completado todas las preguntas disponibles de <span className="font-medium capitalize">{selectedSubject}</span> en 
             nivel <span className="font-medium capitalize">{currentDifficulty}</span>. 
-            ¡Te invitamos a probar otra materia!
+            ¿Te gustaría probar otra materia?
           </p>
           <div className="flex flex-wrap justify-center gap-3 mb-6">
             {SUBJECTS.filter(s => s !== selectedSubject).map(subject => (
@@ -617,8 +617,19 @@ const PracticeSection = () => {
               </button>
             ))}
           </div>
+          <div className="mb-4">
+            <p className="text-gray-700 font-medium mb-2">
+              ¿Quieres volver a intentar con {selectedSubject}?
+            </p>
+            <button 
+              onClick={() => handleSubjectChange(selectedSubject)}
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md transition-colors"
+            >
+              Reiniciar {selectedSubject}
+            </button>
+          </div>
           <p className="text-gray-500 text-sm">
-            O prueba ajustar la dificultad en tu perfil para desbloquear más preguntas.
+            También puedes ajustar la dificultad en tu perfil para desbloquear más preguntas.
           </p>
         </div>
       );
@@ -633,128 +644,91 @@ const PracticeSection = () => {
             </svg>
           </div>
           <h3 className="text-2xl font-bold mb-2 text-gray-800">¡Práctica completada!</h3>
-          <p className="text-lg text-gray-600 mb-2">Has completado todas las preguntas en esta sesión.</p>
-          <div className="flex justify-center items-center mb-6">
-            <div className="inline-block bg-indigo-100 text-indigo-800 rounded-full px-4 py-2 font-medium text-lg">
-              Score: {score}/{answeredQuestions.length}
+          <p className="text-lg text-gray-600 mb-4">Has completado las {QUESTIONS_PER_SESSION} preguntas de esta sesión.</p>
+          
+          <div className="bg-indigo-50 rounded-lg p-5 mb-6 inline-block">
+            <div className="flex items-center justify-center mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="font-medium text-indigo-800">Tu puntaje final</span>
+            </div>
+            <div className="text-3xl font-bold text-indigo-700">
+              {score} <span className="text-indigo-400">/</span> {answeredQuestions.length}
+            </div>
+            <div className="text-sm text-indigo-600 mt-1">
+              {Math.round((score / answeredQuestions.length) * 100)}% de respuestas correctas
             </div>
           </div>
-          <button
-            onClick={() => handleSubjectChange(selectedSubject)}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors"
-          >
-            Comenzar nueva práctica
-          </button>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 max-w-lg mx-auto">
+            <button
+              onClick={() => handleSubjectChange(selectedSubject)}
+              className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors flex items-center justify-center"
+            >
+              <RefreshCw size={18} className="mr-2" />
+              Reiniciar {selectedSubject}
+            </button>
+            
+            <div className="relative">
+              <button
+                onClick={() => document.getElementById('otherSubjectsDropdown').classList.toggle('hidden')}
+                className="w-full px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-md transition-colors flex items-center justify-center"
+              >
+                Cambiar materia
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <div id="otherSubjectsDropdown" className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg hidden">
+                {SUBJECTS.filter(s => s !== selectedSubject).map(subject => (
+                  <button
+                    key={subject}
+                    onClick={() => handleSubjectChange(subject)}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-gray-700 first:rounded-t-md last:rounded-b-md"
+                  >
+                    {subject.charAt(0).toUpperCase() + subject.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          <p className="text-gray-500 text-sm">
+            Recuerda que puedes ajustar la dificultad en tu perfil para encontrar preguntas que se adapten a tu nivel.
+          </p>
         </div>
       );
     }
     
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Question & Content Panel */}
-        <div className="md:col-span-2 bg-white rounded-lg shadow-sm overflow-hidden">
-          {loading.openai && !currentQuestion ? (
-            <div className="flex justify-center items-center h-40">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            </div>
-          ) : currentQuestion ? (
-            <div>
-              {/* Shared Content */}
-                {openaiChat.sharedContent && (
-                <div className="border-b border-gray-100">
-                  <div className="max-w-full overflow-x-auto">
-                  <SharedContentViewer 
-                    sharedContent={openaiChat.sharedContent}
-                    currentQuestionNumber={openaiChat.currentQuestionNumber || 1}
-                    totalQuestions={openaiChat.totalQuestions || 1}
-                  />
-                  </div>
-                </div>
-                )}
-                
-              {/* Question */}
-              <div className="p-6">
-                <div className="mb-6 bg-indigo-50 rounded-lg border border-indigo-100 p-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{currentQuestion.questionText}</h3>
-                  <div className="flex items-center text-xs text-indigo-600">
-                    <BookOpen size={14} className="mr-1" />
-                    <span className="capitalize">{selectedSubject}</span>
-                    <span className="mx-1">•</span>
-                    <span className="capitalize">{currentDifficulty}</span>
-                  </div>
-                </div>
-                
-                {/* Options */}
-                {currentQuestion.options && currentQuestion.options.length > 0 && (
-                  <div className="space-y-2 mb-6">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Selecciona una opción:</h4>
-                    {currentQuestion.options.map((option, index) => (
-                      <button
-              key={index}
-                        onClick={() => handleOptionSelect(option.text)}
-                        disabled={isSubmitting || openaiChat.isCorrect}
-                        className={`w-full p-3 text-left rounded-lg border transition-all duration-200 flex items-center justify-between group ${
-                          selectedOption === option.text
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
-                            : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className={selectedOption === option.text ? "font-medium" : "text-gray-800"}>
-                          {option.text}
-                </span> 
-                        {selectedOption === option.text ? (
-                          isSubmitting ? (
-                            <RefreshCw size={16} className="text-indigo-600 animate-spin" />
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                          )
-                        ) : (
-                          <ArrowRight size={16} className="text-gray-400 group-hover:text-indigo-600 transition-all duration-200" />
-                        )}
-              </button>
-                    ))}
-          </div>
-        )}
-                
-                {/* Correct Answer Indicator */}
-                {openaiChat.isCorrect && (
-                  <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-green-700 mb-4 flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    ¡Respuesta correcta! Avanzando a la siguiente pregunta...
-        </div>
-                )}
-      </div>
-          </div>
-          ) : (
-            <div className="text-center p-6">
-              <p className="text-gray-500">No se ha podido cargar la pregunta. Intenta seleccionar otra materia.</p>
-          </div>
-          )}
-        </div>
-        
-        {/* Chat Panel */}
-        <div className="bg-white rounded-lg shadow-sm flex flex-col h-[600px]">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center">
-            <div className={`w-2 h-2 ${isSubmitting ? 'bg-yellow-500' : 'bg-green-500'} rounded-full mr-2`}></div>
-            <span className="font-medium text-gray-700">
+        {/* Chat Panel - Now given more prominence with 2 columns */}
+        <div className="md:col-span-2 bg-white rounded-lg shadow-md flex flex-col h-[650px] border border-indigo-100">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center bg-indigo-50">
+            <div className={`w-3 h-3 ${isSubmitting ? 'bg-yellow-500' : 'bg-green-500'} rounded-full mr-2`}></div>
+            <span className="font-medium text-gray-800">
               {isSubmitting ? 'Tutor ICFES (escribiendo...)' : 'Tutor ICFES'}
             </span>
-      </div>
+          </div>
       
           {/* Messages */}
           <div 
             ref={chatContainerRef}
-            className="flex-1 overflow-y-auto p-4 space-y-3 chat-messages"
+            className="flex-1 overflow-y-auto p-5 space-y-4 chat-messages"
           >
             {localMessages.length === 0 ? (
               <div className="flex justify-center items-center h-full">
-                <p className="text-gray-400 text-center text-sm">
-                  El tutor está listo para ayudarte. <br />Selecciona una opción o escribe tu pregunta.
-                </p>
+                <div className="text-center">
+                  <div className="mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500 text-center">
+                    El tutor está listo para ayudarte. <br />Selecciona una opción o escribe tu pregunta.
+                  </p>
+                </div>
               </div>
             ) : (
               <>
@@ -768,9 +742,9 @@ const PracticeSection = () => {
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                           </div>
-      </div>
-    </div>
-  );
+                        </div>
+                      </div>
+                    );
                   }
                   
                   // Determinar diferentes tipos de mensajes para visualización
@@ -796,47 +770,157 @@ const PracticeSection = () => {
                 <div ref={messageEndRef} />
               </>
             )}
-        </div>
+          </div>
           
-          {/* Input */}
-          <div className="p-4 border-t border-gray-100">
+          {/* Input - Enhanced styling */}
+          <div className="p-4 border-t border-gray-100 bg-white">
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 value={userAnswer}
                 onChange={(e) => dispatch({ type: 'SET_USER_ANSWER', payload: e.target.value })}
-                placeholder="Escribe tu respuesta o pregunta..."
-                className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                disabled={isSubmitting || openaiChat.isCorrect}
-                onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && handleAnswerSubmit()}
+                placeholder={waitingForNextQuestion ? "Avanza a la siguiente pregunta..." : "Escribe tu respuesta o pregunta..."}
+                className={`flex-1 p-3 border ${waitingForNextQuestion ? 'border-green-300 bg-green-50' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
+                disabled={isSubmitting || openaiChat.isCorrect || waitingForNextQuestion}
+                onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && !waitingForNextQuestion && handleAnswerSubmit()}
               />
-                <button
-                onClick={handleAnswerSubmit}
-                disabled={isSubmitting || !userAnswer.trim() || openaiChat.isCorrect}
-                className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              <button
+                onClick={waitingForNextQuestion ? handleTransitionToNextQuestion : handleAnswerSubmit}
+                disabled={waitingForNextQuestion ? false : (isSubmitting || !userAnswer.trim())}
+                className={`p-3 ${waitingForNextQuestion ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm`}
               >
                 {isSubmitting ? (
-                  <RefreshCw size={18} className="animate-spin" />
+                  <RefreshCw size={20} className="animate-spin" />
+                ) : waitingForNextQuestion ? (
+                  <ArrowRight size={20} />
                 ) : (
-                  <Send size={18} />
+                  <Send size={20} />
                 )}
-                </button>
+              </button>
             </div>
-            <div className="mt-2 flex justify-between items-center">
-              <div className="text-xs text-gray-500">
-                {answeredQuestions.length}/{QUESTIONS_PER_SESSION} preguntas
-          </div>
+            <div className="mt-3 flex justify-between items-center">
               <div className="text-xs text-gray-500 flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                {score} correctas
+                <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">
+                  {answeredQuestions.length}/{QUESTIONS_PER_SESSION} preguntas
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 flex items-center">
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {score} correctas
+                </span>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Question & Content Panel - Now with less prominence */}
+        <div className="md:col-span-1 bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
+          {loading.openai && !currentQuestion ? (
+            <div className="flex justify-center items-center h-40">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+          ) : currentQuestion ? (
+            <div>
+              {/* Shared Content */}
+              {openaiChat.sharedContent && (
+                <div className="border-b border-gray-100">
+                  <div className="max-w-full overflow-x-auto">
+                    <SharedContentViewer 
+                      sharedContent={openaiChat.sharedContent}
+                      currentQuestionNumber={openaiChat.currentQuestionNumber || 1}
+                      totalQuestions={openaiChat.totalQuestions || 1}
+                    />
+                  </div>
+                </div>
+              )}
+                
+              {/* Question */}
+              <div className="p-4">
+                <div className="mb-4 bg-gray-50 rounded-lg border border-gray-200 p-3">
+                  <h3 className="text-base font-medium text-gray-900 mb-2">{currentQuestion.questionText}</h3>
+                  <div className="flex items-center text-xs text-gray-600">
+                    <BookOpen size={12} className="mr-1" />
+                    <span className="capitalize">{selectedSubject}</span>
+                    <span className="mx-1">•</span>
+                    <span className="capitalize">{currentDifficulty}</span>
+                  </div>
+                </div>
+                
+                {/* Options */}
+                {currentQuestion.options && currentQuestion.options.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    <h4 className="text-xs font-medium text-gray-700 mb-2">Selecciona una opción:</h4>
+                    {currentQuestion.options.map((option, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleOptionSelect(option.text)}
+                        disabled={isSubmitting || openaiChat.isCorrect || waitingForNextQuestion}
+                        className={`w-full p-2 text-left rounded-lg border transition-all duration-200 flex items-center justify-between group text-sm ${
+                          waitingForNextQuestion && selectedOption === option.text
+                            ? 'border-green-500 bg-green-50 text-green-800'
+                            : selectedOption === option.text
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-800'
+                              : 'border-gray-200 hover:border-indigo-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className={selectedOption === option.text ? "font-medium" : "text-gray-800"}>
+                          {option.text}
+                        </span>
+                        {selectedOption === option.text ? (
+                          isSubmitting ? (
+                            <RefreshCw size={14} className="text-indigo-600 animate-spin" />
+                          ) : waitingForNextQuestion ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                          )
+                        ) : (
+                          <ArrowRight size={14} className="text-gray-400 group-hover:text-indigo-600 transition-all duration-200" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Correct Answer Indicator */}
+                {openaiChat.isCorrect && (
+                  <div className="p-3 bg-green-50 border border-green-100 rounded-lg text-green-700 mb-3 text-sm">
+                    <div className="flex items-center mb-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <h3 className="font-medium text-green-800">¡Respuesta correcta!</h3>
+                    </div>
+                    
+                    <div className="flex justify-end mt-2">
+                      <button
+                        onClick={handleTransitionToNextQuestion}
+                        disabled={isSubmitting}
+                        className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center text-xs"
+                      >
+                        Siguiente
+                        <ArrowRight size={14} className="ml-1" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center p-6">
+              <p className="text-gray-500">No se ha podido cargar la pregunta. Intenta seleccionar otra materia.</p>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
   };
 
   return (
@@ -844,21 +928,21 @@ const PracticeSection = () => {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h1 className="text-xl font-bold text-gray-900">Práctica ICFES</h1>
         
-          <div className="flex flex-wrap gap-2">
-            {SUBJECTS.map((subject) => (
-              <button
-                key={subject}
-                onClick={() => handleSubjectChange(subject)}
+        <div className="flex flex-wrap gap-2">
+          {SUBJECTS.map((subject) => (
+            <button
+              key={subject}
+              onClick={() => handleSubjectChange(subject)}
               className={`px-3 py-1.5 rounded-md transition-all duration-200 text-sm ${
-                  selectedSubject === subject
-                  ? 'bg-indigo-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                disabled={isSubmitting}
-              >
-                {subject.charAt(0).toUpperCase() + subject.slice(1)}
-              </button>
-            ))}
+                selectedSubject === subject
+                ? 'bg-indigo-600 text-white shadow-sm' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              disabled={isSubmitting}
+            >
+              {subject.charAt(0).toUpperCase() + subject.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
 
