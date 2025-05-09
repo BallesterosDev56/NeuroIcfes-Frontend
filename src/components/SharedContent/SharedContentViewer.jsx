@@ -51,7 +51,7 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
   
   // Contenido de texto
   const renderTextContent = () => (
-    <div className="prose max-w-none">
+    <div className="prose max-w-none p-6">
       <h3 className="text-lg font-medium text-gray-900 mb-3">{sharedContent.title}</h3>
       <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
         <div className="text-gray-800 whitespace-pre-line">
@@ -63,7 +63,7 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
   
   // Contenido de imagen
   const renderImageContent = () => (
-    <div>
+    <div className="p-6">
       <h3 className="text-lg font-medium text-gray-900 mb-3">{sharedContent.title}</h3>
       <div className="relative mb-6 border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <img 
@@ -97,7 +97,8 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
       {/* Información de elementos seleccionados */}
       {activeElementId && (
         <div className="mt-3 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-          <h4 className="font-medium text-indigo-900 mb-2">
+          <h4 className="font-medium text-indigo-900 mb-2 flex items-center">
+            <span className="w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center text-white text-xs mr-2">{activeElementId}</span>
             Elemento {activeElementId}
           </h4>
           {loading ? (
@@ -130,13 +131,13 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
   
   // Contenido mixto (imagen + texto)
   const renderMixedContent = () => (
-    <div>
+    <div className="p-6">
       <h3 className="text-lg font-medium text-gray-900 mb-3">{sharedContent.title}</h3>
       
       {/* Texto */}
       {sharedContent.textContent && (
         <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm mb-4">
-          <div className="prose max-w-none text-gray-800">
+          <div className="prose max-w-none text-gray-800 whitespace-pre-line">
             {sharedContent.textContent}
           </div>
         </div>
@@ -179,7 +180,8 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
       {/* Información de elementos seleccionados */}
       {activeElementId && (
         <div className="mt-3 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
-          <h4 className="font-medium text-indigo-900 mb-2">
+          <h4 className="font-medium text-indigo-900 mb-2 flex items-center">
+            <span className="w-5 h-5 bg-indigo-500 rounded-full flex items-center justify-center text-white text-xs mr-2">{activeElementId}</span>
             Elemento {activeElementId}
           </h4>
           {loading ? (
@@ -205,12 +207,12 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
   );
   
   return (
-    <div className="mb-6">
+    <div>
       {renderContent()}
       
       {/* Indicador de progreso */}
-      <div className="mt-3 flex justify-between items-center text-xs text-blue-600">
-        <span className="bg-blue-100 px-2 py-1 rounded-md">
+      <div className="px-6 py-3 flex justify-between items-center text-xs border-t border-gray-100">
+        <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md font-medium">
           Pregunta {currentQuestionNumber} de {totalQuestions}
         </span>
         
