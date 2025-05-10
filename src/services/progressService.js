@@ -104,4 +104,4 @@ class ProgressService {
   }
 }
 
-export default new ProgressService(); 
+export const progressService = new ProgressService(); 

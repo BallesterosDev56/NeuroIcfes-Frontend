@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import {questionService} from '../services/questionService';
-import {progressService} from '../services/progressService';
-import {chatService} from '../services/chatService';
-import {openaiService} from '../services/openaiService';
+import { questionService } from '../services/questionService';
+import { progressService } from '../services/progressService';
+import { chatService } from '../services/chatService';
+import { openaiService } from '../services/openaiService';
 import { sharedContentService } from '../services/sharedContentService';
 
 const AppContext = createContext();
