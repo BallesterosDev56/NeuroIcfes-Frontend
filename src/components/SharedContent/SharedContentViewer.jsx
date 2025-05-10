@@ -89,11 +89,6 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
         ))}
       </div>
       
-      {/* Descripción de la imagen */}
-      <div className="p-2 bg-gray-50 rounded-lg mb-2 text-xs">
-        <p className="text-gray-700">{sharedContent.imageDescription}</p>
-      </div>
-      
       {/* Información de elementos seleccionados */}
       {activeElementId && (
         <div className="mt-2 p-2 bg-indigo-50 rounded-lg border border-indigo-100">
@@ -167,13 +162,6 @@ const SharedContentViewer = ({ sharedContent, currentQuestionNumber = 1, totalQu
               {el.elementId}
             </button>
           ))}
-        </div>
-      )}
-      
-      {/* Descripción de la imagen */}
-      {sharedContent.imageDescription && (
-        <div className="p-2 bg-gray-50 rounded-lg mb-2 text-xs">
-          <p className="text-gray-700">{sharedContent.imageDescription}</p>
         </div>
       )}
       

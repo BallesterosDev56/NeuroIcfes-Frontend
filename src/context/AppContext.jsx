@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import {questionService} from '../services/questionService';
-import ProgressService from '../services/ProgressService';
-import ChatService from '../services/ChatService';
-import OpenAIService from '../services/openaiService';
+import {progressService} from '../services/progressService';
+import {chatService} from '../services/chatService';
+import {openaiService} from '../services/openaiService';
 import { sharedContentService } from '../services/sharedContentService';
 
 const AppContext = createContext();
@@ -294,7 +294,7 @@ export function AppProvider({ children }) {
   const fetchProgress = useCallback(async () => {
     dispatch({ type: 'FETCH_PROGRESS_START' });
     try {
-      const progress = await ProgressService.getProgress();
+      const progress = await progressService.getProgress();
       dispatch({ type: 'FETCH_PROGRESS_SUCCESS', payload: progress });
       return progress;
     } catch (error) {
@@ -306,7 +306,7 @@ export function AppProvider({ children }) {
   const fetchChatHistory = useCallback(async () => {
     dispatch({ type: 'FETCH_CHAT_HISTORY_START' });
     try {
-      const history = await ChatService.getChatHistory();
+      const history = await chatService.getChatHistory();
       dispatch({ type: 'FETCH_CHAT_HISTORY_SUCCESS', payload: history });
       return history;
     } catch (error) {
@@ -317,7 +317,7 @@ export function AppProvider({ children }) {
 
   const sendChatMessage = useCallback(async (questionId, message) => {
     try {
-      const response = await ChatService.sendMessage(questionId, message);
+      const response = await chatService.sendMessage(questionId, message);
       dispatch({ type: 'ADD_CHAT_MESSAGE', payload: response });
       return response;
     } catch (error) {
@@ -361,7 +361,7 @@ export function AppProvider({ children }) {
   const startOpenAIChat = useCallback(async (subject, interests, sharedContentId = null) => {
     dispatch({ type: 'OPENAI_CHAT_START' });
     try {
-      const response = await OpenAIService.startChat(subject, sharedContentId);
+      const response = await openaiService.startChat(subject, sharedContentId);
       dispatch({ type: 'OPENAI_CHAT_SUCCESS', payload: response });
       return response;
     } catch (error) {
@@ -373,7 +373,7 @@ export function AppProvider({ children }) {
   const sendOpenAIMessage = useCallback(async (questionId, message, timeSpent) => {
     dispatch({ type: 'OPENAI_MESSAGE_START' });
     try {
-      const response = await OpenAIService.sendMessage(questionId, message, timeSpent);
+      const response = await openaiService.sendMessage(questionId, message, timeSpent);
       dispatch({ type: 'OPENAI_MESSAGE_SUCCESS', payload: response });
       return response;
     } catch (error) {
@@ -385,7 +385,7 @@ export function AppProvider({ children }) {
   const checkOpenAIAnswer = useCallback(async (questionId, answer) => {
     dispatch({ type: 'OPENAI_CHECK_ANSWER_START' });
     try {
-      const response = await OpenAIService.checkAnswer(questionId, answer);
+      const response = await openaiService.checkAnswer(questionId, answer);
       dispatch({ 
         type: 'OPENAI_CHECK_ANSWER_SUCCESS', 
         payload: {
@@ -404,7 +404,7 @@ export function AppProvider({ children }) {
   const getNextOpenAIQuestion = useCallback(async (subject, difficulty, sharedContentId = null) => {
     dispatch({ type: 'OPENAI_NEXT_QUESTION_START' });
     try {
-      const response = await OpenAIService.getNextQuestion(subject, difficulty, sharedContentId);
+      const response = await openaiService.getNextQuestion(subject, difficulty, sharedContentId);
       dispatch({ type: 'OPENAI_NEXT_QUESTION_SUCCESS', payload: response });
       return response;
     } catch (error) {
@@ -482,7 +482,7 @@ export function AppProvider({ children }) {
 
   const getImageElementInfo = useCallback(async (sharedContentId, elementId) => {
     try {
-      return await OpenAIService.getImageElementInfo(sharedContentId, elementId);
+      return await openaiService.getImageElementInfo(sharedContentId, elementId);
     } catch (error) {
       console.error('Error getting image element info:', error);
       throw error;

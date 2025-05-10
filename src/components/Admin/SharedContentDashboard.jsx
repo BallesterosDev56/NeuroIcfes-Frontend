@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Info
 } from 'lucide-react';
+import ImageUploader from '../ImageUploader';
 
 // Componente de Modal de Confirmación para Eliminación
 const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, contentTitle, hasQuestions }) => {
@@ -109,11 +110,13 @@ const SharedContentDashboard = () => {
     title: '',
     message: ''
   });
+  const [urlInputLocked, setUrlInputLocked] = useState(false);
   const [formData, setFormData] = useState({
     contentType: 'text',
     title: '',
     textContent: '',
     mediaUrl: '',
+    imageData: null,
     imageDescription: '',
     imageElements: [],
     subject: 'matematicas',
@@ -161,10 +164,26 @@ const SharedContentDashboard = () => {
   // Función para manejar cambios en el formulario
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Si se está modificando la URL de la imagen manualmente, limpiar los datos de imagen subida
+    if (name === 'mediaUrl' && value !== formData.mediaUrl) {
+      // Si estamos modificando la URL manualmente, desbloquear el campo
+      if (urlInputLocked) {
+        setUrlInputLocked(false);
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        // Si se está ingresando una URL manualmente, limpiar los datos de la imagen subida
+        imageData: value ? null : prev.imageData
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   // Función para manejar cambios en los elementos de imagen
@@ -227,8 +246,10 @@ const SharedContentDashboard = () => {
       errors.push('El contenido de texto es requerido para tipo "texto"');
     }
     
-    if ((formData.contentType === 'image' || formData.contentType === 'mixed') && !formData.mediaUrl) {
-      errors.push('La URL de la imagen es requerida para tipos "imagen" o "mixto"');
+    // Validar que exista una URL de imagen o datos de imagen de Cloudinary
+    if ((formData.contentType === 'image' || formData.contentType === 'mixed') && 
+        !formData.mediaUrl && !formData.imageData) {
+      errors.push('Se requiere una imagen para tipos "imagen" o "mixto". Sube una imagen o proporciona una URL.');
     }
     
     if ((formData.contentType === 'image' || formData.contentType === 'mixed') && !formData.imageDescription) {
@@ -245,6 +266,7 @@ const SharedContentDashboard = () => {
       title: '',
       textContent: '',
       mediaUrl: '',
+      imageData: null,
       imageDescription: '',
       imageElements: [],
       subject: selectedSubject,
@@ -252,6 +274,7 @@ const SharedContentDashboard = () => {
     });
     setIsEditing(false);
     setCurrentContent(null);
+    setUrlInputLocked(false);
   };
 
   // Función para iniciar la edición de un contenido
@@ -262,11 +285,16 @@ const SharedContentDashboard = () => {
       title: content.title,
       textContent: content.textContent || '',
       mediaUrl: content.mediaUrl || '',
+      imageData: content.imageData || null,
       imageDescription: content.imageDescription || '',
       imageElements: content.imageElements || [],
       subject: content.subject,
       difficulty: content.difficulty
     });
+    
+    // Si el contenido tiene datos de imagen de Cloudinary, bloquear el campo de URL
+    setUrlInputLocked(content.imageData !== null);
+    
     setIsEditing(true);
   };
 
@@ -362,6 +390,24 @@ const SharedContentDashboard = () => {
         message: 'Error al guardar el contenido: ' + error.message
       });
     }
+  };
+
+  // Función para manejar la carga de imágenes
+  const handleImageUpload = (imageData) => {
+    setFormData(prev => ({
+      ...prev,
+      // Si se ha subido una imagen exitosamente, usamos esa URL y limpiamos cualquier URL externa anterior
+      mediaUrl: imageData.url,
+      imageData: {
+        public_id: imageData.public_id,
+        format: imageData.format,
+        width: imageData.width,
+        height: imageData.height
+      }
+    }));
+    
+    // Bloquear el campo de URL externa
+    setUrlInputLocked(true);
   };
 
   // Renderizar cargando
@@ -526,16 +572,66 @@ const SharedContentDashboard = () => {
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    URL de la Imagen
+                    Imagen
                   </label>
-                  <input
-                    type="text"
-                    name="mediaUrl"
-                    value={formData.mediaUrl}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Ingrese la URL de la imagen"
+                  <div className="mb-2 text-sm text-gray-500">
+                    Puedes subir una imagen o proporcionar una URL externa. Solo necesitas una de las dos opciones.
+                  </div>
+                  <ImageUploader 
+                    onImageUpload={handleImageUpload} 
+                    existingImageUrl={formData.mediaUrl}
+                    onError={() => {
+                      // Si hay un error al subir la imagen, desbloquear el campo URL
+                      setUrlInputLocked(false);
+                    }}
                   />
+                  <div className="mt-4">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        O usa una URL externa
+                      </label>
+                      {urlInputLocked && (
+                        <button
+                          type="button"
+                          onClick={() => setUrlInputLocked(false)}
+                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
+                          </svg>
+                          Desbloquear
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="mediaUrl"
+                        value={formData.mediaUrl}
+                        onChange={handleInputChange}
+                        className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${urlInputLocked ? 'bg-gray-50 text-gray-500' : ''}`}
+                        placeholder="Ingrese la URL de la imagen"
+                        disabled={urlInputLocked}
+                      />
+                      {urlInputLocked && (
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {formData.mediaUrl && formData.imageData && (
+                      <p className="mt-1 text-xs text-amber-500">
+                        Atención: Si modificas la URL externa, se ignorará la imagen subida anteriormente.
+                      </p>
+                    )}
+                    {urlInputLocked && (
+                      <p className="mt-1 text-xs text-green-600">
+                        URL bloqueada automáticamente tras subir imagen a Cloudinary. Haz clic en "Desbloquear" si necesitas modificarla.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div>
