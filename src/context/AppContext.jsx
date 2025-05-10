@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import {questionService} from '../services/QuestionService';
+import {questionService} from '../services/questionService';
 import ProgressService from '../services/ProgressService';
 import ChatService from '../services/ChatService';
 import OpenAIService from '../services/openaiService';
