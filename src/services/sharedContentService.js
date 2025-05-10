@@ -161,5 +161,4 @@ class SharedContentService {
   }
 }
 
-export const sharedContentService = new SharedContentService();
-export default sharedContentService; 
+export const sharedContentService = new SharedContentService(); 
