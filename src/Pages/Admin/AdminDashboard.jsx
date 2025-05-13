@@ -6,6 +6,7 @@ import { BrainCircuit, BookOpen, LogOut, Layers } from 'lucide-react';
 import QuestionDashboard from '../../components/Admin/QuestionDashboard';
 import SharedContentDashboard from '../../components/Admin/SharedContentDashboard';
 import { getAllUsers } from '../../services/userService';
+import { questionService } from '../../services/questionService';
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [userCount, setUserCount] = useState(0);
   const [activeSessions, setActiveSessions] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
 
   useEffect(() => {
     const fetchUserCount = async () => {
@@ -28,9 +30,22 @@ export const AdminDashboard = () => {
       }
     };
 
+    const fetchQuestionCount = async () => {
+      try {
+        const count = await questionService.getQuestionsCount();
+        setQuestionCount(count);
+      } catch (error) {
+        console.error('Error fetching question count:', error);
+      }
+    };
+
     fetchUserCount();
+    fetchQuestionCount();
     // Refresh every 5 minutes
-    const interval = setInterval(fetchUserCount, 5 * 60 * 1000);
+    const interval = setInterval(() => {
+      fetchUserCount();
+      fetchQuestionCount();
+    }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -75,7 +90,7 @@ export const AdminDashboard = () => {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Preguntas</p>
-                    <p className="text-2xl font-semibold text-gray-900">0</p>
+                    <p className="text-2xl font-semibold text-gray-900">{questionCount}</p>
                   </div>
                 </div>
               </div>

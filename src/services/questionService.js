@@ -157,6 +157,35 @@ class QuestionService {
       throw error;
     }
   }
+
+  async getQuestionsCount() {
+    try {
+      const token = sessionStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch(
+        `${API_URL}/questions/count`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch question count');
+      }
+
+      const data = await response.json();
+      return data.count;
+    } catch (error) {
+      console.error('Error fetching question count:', error);
+      throw error;
+    }
+  }
 }
 
 export const questionService = new QuestionService(); 
