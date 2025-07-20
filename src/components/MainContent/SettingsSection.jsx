@@ -3,13 +3,13 @@ import { Settings } from 'lucide-react';
 
 const SettingsSection = () => {
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div className="flex items-center space-x-3">
         <Settings className="text-indigo-600" size={24} />
-        <h1 className="text-2xl font-bold text-gray-900">Ajustes</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Ajustes</h1>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 space-y-6">
         <div className="space-y-4">
           <h2 className="text-lg font-medium text-gray-900">Perfil</h2>
           <div className="space-y-4">
@@ -19,7 +19,7 @@ const SettingsSection = () => {
               </label>
               <input
                 type="text"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full p-2.5 sm:p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
                 placeholder="Tu nombre"
               />
             </div>
@@ -29,7 +29,7 @@ const SettingsSection = () => {
               </label>
               <input
                 type="email"
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full p-2.5 sm:p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm sm:text-base"
                 placeholder="tu@email.com"
               />
             </div>
