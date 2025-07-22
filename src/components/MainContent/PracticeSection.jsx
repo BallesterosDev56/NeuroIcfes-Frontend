@@ -847,9 +847,9 @@ const PracticeSection = () => {
     }
     
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Chat Panel - Now given more prominence with 2 columns */}
-        <div className="md:col-span-2 bg-white rounded-lg shadow-sm flex flex-col h-[650px] border border-gray-100">
+        <div className="lg:col-span-2 bg-white rounded-lg shadow-sm flex flex-col h-[500px] sm:h-[600px] lg:h-[650px] border border-gray-100">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center bg-indigo-50">
             <div className={`w-3 h-3 ${isSubmitting ? 'bg-yellow-500' : 'bg-green-500'} rounded-full mr-2`}></div>
             <span className="font-medium text-gray-800">
@@ -927,13 +927,13 @@ const PracticeSection = () => {
           
           {/* Input - Enhanced styling */}
           <div className="p-3 border-t border-gray-100 bg-white">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-center gap-2">
               <input
                 type="text"
                 value={userAnswer}
                 onChange={(e) => dispatch({ type: 'SET_USER_ANSWER', payload: e.target.value })}
                 placeholder={waitingForNextQuestion ? "Avanza a la siguiente pregunta..." : "Escribe tu respuesta o pregunta..."}
-                className={`flex-1 p-2 border ${waitingForNextQuestion ? 'border-green-300 bg-green-50' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
+                className={`w-full p-2 border ${waitingForNextQuestion ? 'border-green-300 bg-green-50' : 'border-gray-300'} rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all`}
                 disabled={isSubmitting || waitingForNextQuestion}
                 onKeyPress={(e) => e.key === 'Enter' && userAnswer.trim() && !waitingForNextQuestion && handleAnswerSubmit()}
               />
@@ -941,7 +941,7 @@ const PracticeSection = () => {
                 <button
                   onClick={handleTransitionToNextQuestion}
                   disabled={isSubmitting}
-                  className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center shadow-sm"
+                  className="w-full sm:w-auto p-2 bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50 transition-colors flex items-center justify-center shadow-sm"
                 >
                   <ArrowRight size={20} />
                 </button>
@@ -978,7 +978,7 @@ const PracticeSection = () => {
         </div>
 
         {/* Question & Content Panel - Now with less prominence */}
-        <div className="md:col-span-1 bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
+        <div className="lg:col-span-1 bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
           {loading.openai && !currentQuestion ? (
             <div className="flex justify-center items-center h-40">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
@@ -1086,15 +1086,15 @@ const PracticeSection = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
         <h1 className="text-xl font-bold text-gray-900">Práctica ICFES</h1>
         
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-2">
           {SUBJECTS.map((subject) => (
             <button
               key={subject}
               onClick={() => handleSubjectChange(subject)}
-              className={`px-3 py-1 rounded-md transition-all duration-200 text-sm ${
+              className={`flex-1 sm:flex-none px-3 py-1 rounded-md transition-all duration-200 text-sm ${
                 selectedSubject === subject
                 ? 'bg-indigo-600 text-white shadow-sm' 
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'

@@ -21,8 +21,8 @@ const MainContent = ({ activeSection }) => {
   };
 
   return (
-    <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-      <div className="mx-40">
+    <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {renderContent()}
       </div>
     </main>
