@@ -28,11 +28,11 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) =>
     <>
       {/* Sidebar */}
       <aside
-        className={`fixed lg:relative inset-y-0 left-0 z-40 bg-white shadow-lg transform transition-all duration-300 ease-in-out ${
-          isOpen ? 'w-72 translate-x-0' : 'w-0 lg:w-20 -translate-x-full lg:translate-x-0'
-        }`}
+        className={`fixed lg:relative inset-y-0 left-0 z-40 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
+          isOpen ? 'w-72' : 'w-20'
+        } ${!isOpen && '!w-0 lg:!w-20'}`}
       >
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col relative">
           {/* Toggle Button */}
           <button
             className="absolute -right-3 top-6 z-50 p-1.5 rounded-full bg-white shadow-lg hover:bg-gray-50 transition-all border border-gray-100 hidden lg:flex items-center justify-center"
@@ -50,9 +50,9 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) =>
           </button>
 
           {/* Logo and Title */}
-          <div className={`p-6 ${!isOpen && 'lg:hidden'}`}>
+          <div className={`p-6 transition-opacity duration-200 ${!isOpen ? 'lg:opacity-0' : 'opacity-100'} ${!isOpen && 'lg:hidden'}`}>
             <div className="flex items-center space-x-3">
-                <img className='w-16' src={Logo} alt="Logo" />
+              <img className='w-16' src={Logo} alt="Logo" />
               <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 NeuroICFES AI
               </h1>
@@ -67,7 +67,7 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) =>
                 <button
                   key={item.id}
                   onClick={() => onSectionChange(item.id)}
-                  className={`w-full flex items-center justify-center lg:justify-start space-x-3 px-4 py-3 rounded-xl transition-all ${
+                  className={`w-full flex items-center ${isOpen ? 'justify-start' : 'lg:justify-center'} space-x-3 px-4 py-3 rounded-xl transition-all ${
                     activeSection === item.id
                       ? 'bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-50/50'
@@ -76,14 +76,16 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) =>
                   <div className={`p-1.5 rounded-lg ${activeSection === item.id ? 'bg-indigo-100' : 'bg-gray-100'}`}>
                     <Icon size={20} className={activeSection === item.id ? 'text-indigo-600' : 'text-gray-500'} />
                   </div>
-                  <span className={`font-medium ${!isOpen && 'lg:hidden'}`}>{item.label}</span>
+                  <span className={`font-medium transition-opacity duration-200 ${!isOpen ? 'lg:opacity-0 lg:w-0' : 'opacity-100'} ${!isOpen && 'lg:hidden'}`}>
+                    {item.label}
+                  </span>
                 </button>
               );
             })}
           </nav>
 
           {/* User Profile */}
-          <div className={`p-4 ${!isOpen && 'lg:hidden'}`}>
+          <div className={`p-4 transition-opacity duration-200 ${!isOpen ? 'lg:opacity-0' : 'opacity-100'} ${!isOpen && 'lg:hidden'}`}>
             <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
             <div className="mt-4 flex items-center space-x-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
@@ -100,7 +102,7 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) =>
           <div className="p-4">
             <button
               onClick={() => onSectionChange('logout')}
-              className={`w-full flex items-center justify-center lg:justify-start space-x-3 px-4 py-3 rounded-xl transition-all ${
+              className={`w-full flex items-center ${isOpen ? 'justify-start' : 'lg:justify-center'} space-x-3 px-4 py-3 rounded-xl transition-all ${
                 activeSection === 'logout'
                   ? 'bg-red-50 text-red-600'
                   : 'text-gray-600 hover:bg-gray-50/50'
@@ -109,7 +111,9 @@ export const Sidebar = ({ activeSection, onSectionChange, isOpen, onToggle }) =>
               <div className={`p-1.5 rounded-lg ${activeSection === 'logout' ? 'bg-red-100' : 'bg-gray-100'}`}>
                 <LogOut size={20} className={activeSection === 'logout' ? 'text-red-600' : 'text-gray-500'} />
               </div>
-              <span className={`font-medium ${!isOpen && 'lg:hidden'}`}>Cerrar Sesión</span>
+              <span className={`font-medium transition-opacity duration-200 ${!isOpen ? 'lg:opacity-0 lg:w-0' : 'opacity-100'} ${!isOpen && 'lg:hidden'}`}>
+                Cerrar Sesión
+              </span>
             </button>
           </div>
         </div>
