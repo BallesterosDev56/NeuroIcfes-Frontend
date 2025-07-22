@@ -35,15 +35,15 @@ export const Login = () => {
     try {
       setIsLoading(true);
       setAuthError('');
-      console.log("Iniciando proceso de autenticación con Google...");
+      
+      // 1. Autenticación con Google
       const result = await signInWithPopup(auth, googleProvider);
       
-      // Get the token and store it
+      // 2. Obtener y guardar el token
       const token = await result.user.getIdToken();
-      console.log("Google auth successful, got token");
       sessionStorage.setItem('token', token);
       
-      // For debugging - store user info
+      // 3. Preparar datos del usuario
       const userData = {
         uid: result.user.uid,
         displayName: result.user.displayName,
@@ -52,112 +52,52 @@ export const Login = () => {
         photoURL: result.user.photoURL
       };
       
-      console.log("Información del usuario:", userData);
-      sessionStorage.setItem('userData', JSON.stringify(userData));
-      
-      // Check if user profile exists
-      let existingProfile = null;
-      let isNewUser = false;
-      
+      // 4. Verificar perfil existente
+      let userProfile = null;
       try {
-        console.log("Verificando si el perfil de usuario existe para:", result.user.uid);
-        existingProfile = await getUserProfile(result.user.uid);
-        console.log("Perfil existe:", existingProfile);
+        userProfile = await getUserProfile(result.user.uid);
       } catch (error) {
-        // Explicitly handle the "Usuario no encontrado" error or 404 status
-        if (error.message.includes('Usuario no encontrado') || 
-            error.message.includes('not found') || 
-            error.status === 404) {
-          console.log('Nuevo usuario detectado, se creará un perfil');
-          isNewUser = true;
-          // existingProfile remains null
-        } else if (error.message.includes('No autorizado') || error.status === 401) {
-          console.error('Error de autorización al verificar perfil:', error);
-          setAuthError('Error de autorización: El token no es válido o ha expirado.');
-          return;
-        } else {
-          // For other errors, show the error message and stop execution
-          console.error('Error inesperado al verificar perfil:', error);
-          setAuthError('Error al verificar perfil: ' + error.message);
-          throw error;
-        }
-      }
-      
-      // For new users, create a profile
-      if (isNewUser) {
-        try {
-          console.log('Creando nuevo perfil de usuario para:', result.user.uid);
+        // Solo crear nuevo perfil si el error es específicamente "usuario no encontrado"
+        if (error.message.includes('Usuario no encontrado') || error.status === 404) {
           const userDataToSave = {
-            displayName: result.user.displayName,
-            email: result.user.email,
-            photoURL: result.user.photoURL,
-            provider: 'google',
-            profileCompleted: false // Explicitly set to false for new users
+            ...userData,
+            profileCompleted: false
           };
-          console.log('Datos de usuario a guardar:', userDataToSave);
-          
-          console.log('Llamando a createUserProfile...');
-          const createdProfile = await createUserProfile(result.user.uid, userDataToSave);
-          console.log('Perfil creado exitosamente:', createdProfile);
-          
-          // Actualizar el contexto con el nuevo perfil
-          await setUserProfile({...createdProfile, uid: result.user.uid});
-          
-          // Redirect to user-info for new users
-          navigate('/user-info');
-          return;
-        } catch (error) {
-          console.error('Error al crear perfil de usuario:', error);
-          if (error.message.includes('No autorizado') || error.status === 401) {
-            setAuthError('Error de autorización: No se pudo crear el perfil porque el token no es válido.');
-          } else if (error.message.includes('API endpoint not found') || error.status === 404 || error.name === 'SyntaxError') {
-            console.error('Detalles del error:', error);
-            setAuthError('Error de servidor: La API no está disponible o el endpoint no existe. Verifique la configuración del backend.');
-          } else if (error.message.includes('ya existe')) {
-            // Si el usuario ya existe, intentar obtener el perfil nuevamente
-            console.log('El usuario ya existe, intentando obtener el perfil...');
-            try {
-              existingProfile = await getUserProfile(result.user.uid);
-              console.log('Perfil recuperado:', existingProfile);
-              // Continue to the next section to handle existing profile
-            } catch (getError) {
-              console.error('Error al recuperar perfil existente:', getError);
-              setAuthError('Error al recuperar perfil existente: ' + getError.message);
-              return;
-            }
-          } else {
-            setAuthError('Error al crear perfil: ' + error.message);
-            return;
-          }
+          userProfile = await createUserProfile(result.user.uid, userDataToSave);
+        } else {
+          throw error; // Re-lanzar otros tipos de errores
         }
       }
       
-      // For existing users, check if profile is completed
-      if (!existingProfile || !existingProfile.profileCompleted) {
-        console.log('Redirigiendo a completar perfil...');
-        // Actualizar el contexto con el perfil existente
-        await setUserProfile({...existingProfile, uid: result.user.uid});
-        // Redirect to user-info if profile exists but is not completed
+      // 5. Actualizar el contexto y sessionStorage
+      await setUserProfile({...userProfile, uid: result.user.uid});
+      sessionStorage.setItem('userData', JSON.stringify({
+        ...userData,
+        role: userProfile?.role || 'user'
+      }));
+      
+      // 6. Redireccionar basado en el estado del perfil
+      if (!userProfile || !userProfile.profileCompleted) {
         navigate('/user-info');
+      } else if (userProfile.role === 'admin') {
+        navigate('/admin');
       } else {
-        console.log('Perfil completo, redirigiendo a home...', existingProfile);
-        // Actualizar el contexto con el perfil existente
-        await setUserProfile({...existingProfile, uid: result.user.uid});
-        // Redirect to home if profile exists and is completed
         navigate('/home');
       }
-    } catch (error) {
-      console.error('Error de inicio de sesión con Google:', error);
       
-      // Provide more helpful error messages based on the error type
-      if (error.name === 'SyntaxError') {
-        setAuthError('Error: La respuesta del servidor no es válida. Verifique que el backend esté funcionando correctamente.');
-      } else if (error.code === 'auth/popup-closed-by-user') {
-        setAuthError('Inicio de sesión cancelado: La ventana de Google fue cerrada.');
-      } else if (error.message.includes('API endpoint not found')) {
-        setAuthError('Error de conexión: No se puede conectar con el servidor backend.');
+    } catch (error) {
+      console.error('Error en el proceso de autenticación con Google:', error);
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        setAuthError('Se cerró la ventana de inicio de sesión de Google');
+      } else if (error.code === 'auth/popup-blocked') {
+        setAuthError('El navegador bloqueó la ventana emergente. Por favor, permite ventanas emergentes para este sitio.');
+      } else if (error.message.includes('No autorizado') || error.status === 401) {
+        setAuthError('Error de autorización. Por favor, intenta de nuevo.');
+      } else if (error.message.includes('API endpoint not found') || error.status === 404) {
+        setAuthError('Error de conexión con el servidor. Por favor, intenta más tarde.');
       } else {
-        setAuthError('Error al iniciar sesión con Google: ' + error.message);
+        setAuthError('Error al iniciar sesión con Google. Por favor, intenta de nuevo.');
       }
     } finally {
       setIsLoading(false);

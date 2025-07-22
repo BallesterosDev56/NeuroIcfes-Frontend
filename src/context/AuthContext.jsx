@@ -15,60 +15,96 @@ export const AuthProvider = ({ children }) => {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [requiresProfile, setRequiresProfile] = useState(false);
+  const [authError, setAuthError] = useState(null);
+
+  const clearAuthState = () => {
+    setCurrentUser(null);
+    setUserProfile(null);
+    setRequiresProfile(false);
+    setAuthError(null);
+    sessionStorage.removeItem('userData');
+    sessionStorage.removeItem('token');
+  };
 
   useEffect(() => {
+    let isMounted = true;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          // Get fresh token on auth state change
-          await getFreshToken();
+      if (!isMounted) return;
+
+      try {
+        if (user) {
+          setLoading(true);
           
-          // Get user profile from backend
-          const profile = await getUserProfile(user.uid);
-          setUserProfile(profile);
+          // Get fresh token
+          const token = await getFreshToken();
+          if (!token) {
+            throw new Error('No se pudo obtener el token de autenticación');
+          }
           
-          // Store user data in sessionStorage
-          sessionStorage.setItem('userData', JSON.stringify({
-            ...user,
-            role: profile?.role || 'user'
-          }));
+          // Get user profile
+          try {
+            const profile = await getUserProfile(user.uid);
+            if (isMounted) {
+              setUserProfile(profile);
+              setRequiresProfile(!profile || !profile.profileCompleted);
+              
+              // Update session storage
+              const userData = {
+                ...user,
+                role: profile?.role || 'user'
+              };
+              sessionStorage.setItem('userData', JSON.stringify(userData));
+            }
+          } catch (error) {
+            if (error.status === 404 || error.message.includes('Usuario no encontrado')) {
+              setRequiresProfile(true);
+            } else {
+              throw error;
+            }
+          }
           
-          // Set whether profile completion is required
-          setRequiresProfile(!profile || !profile.profileCompleted);
-        } catch (error) {
-          console.error('Error fetching user profile:', error);
-          // Si hay un error al obtener el perfil, asumimos que necesita completarlo
-          setRequiresProfile(true);
+          if (isMounted) {
+            setCurrentUser(user);
+            setAuthError(null);
+          }
+        } else {
+          if (isMounted) {
+            clearAuthState();
+          }
         }
-      } else {
-        setUserProfile(null);
-        setRequiresProfile(false);
-        // Clear sessionStorage when user logs out
-        sessionStorage.removeItem('userData');
-        sessionStorage.removeItem('token');
+      } catch (error) {
+        console.error('Error en AuthContext:', error);
+        if (isMounted) {
+          setAuthError(error.message);
+          clearAuthState();
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      setCurrentUser(user);
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
-  // Función para actualizar el perfil del usuario
   const updateUserProfile = async (profileData) => {
     try {
-      // Check if we have a uid from profileData or currentUser
-      const uid = profileData?.uid || (currentUser?.uid);
+      const uid = profileData?.uid || currentUser?.uid;
       
       if (!uid) {
-        throw new Error('No user ID available to update profile');
+        throw new Error('No hay ID de usuario disponible para actualizar el perfil');
       }
       
       const updatedProfile = await getUserProfile(uid);
+      
       setUserProfile(updatedProfile);
       setRequiresProfile(!updatedProfile || !updatedProfile.profileCompleted);
       
-      // Actualizar también en sessionStorage
       const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
       userData.profile = updatedProfile;
       userData.role = updatedProfile?.role || 'user';
@@ -76,7 +112,7 @@ export const AuthProvider = ({ children }) => {
       
       return updatedProfile;
     } catch (error) {
-      console.error('Error updating user profile in context:', error);
+      console.error('Error al actualizar el perfil en el contexto:', error);
       throw error;
     }
   };
@@ -87,7 +123,8 @@ export const AuthProvider = ({ children }) => {
     setUserProfile: updateUserProfile,
     loading,
     requiresProfile,
-    user: userProfile // Agregamos user como alias de userProfile para mantener compatibilidad
+    authError,
+    user: userProfile
   };
 
   return (
