@@ -16,11 +16,11 @@ export const Introduction = () => {
   return (
     <div className="w-full min-h-screen relative">
       {/* Círculos decorativos con opacidad - Expanded for mobile */}
-      <div className="absolute top-1/4 left-1/4 w-64 sm:w-64 md:w-96 h-64 sm:h-64 md:h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
-      <div className="absolute top-5 sm:top-10 left-5 sm:left-10 w-48 sm:w-48 md:w-96 h-16 sm:h-10 md:h-20 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
-      <div className="absolute bottom-5 sm:bottom-10 left-5 sm:left-10 w-48 sm:w-48 md:w-96 h-16 sm:h-10 md:h-20 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
-      <div className="absolute top-5 sm:top-10 right-5 sm:right-10 w-48 sm:w-48 md:w-96 h-10 sm:h-6 md:h-10 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
-      <div className="absolute bottom-5 sm:bottom-10 right-5 sm:right-10 w-64 sm:w-64 md:w-96 h-64 sm:h-64 md:h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
+      <div className="pointer-events-none absolute top-1/4 left-1/4 w-64 sm:w-64 md:w-96 h-64 sm:h-64 md:h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
+      <div className="pointer-events-none absolute top-5 sm:top-10 left-5 sm:left-10 w-48 sm:w-48 md:w-96 h-16 sm:h-10 md:h-20 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
+      <div className="pointer-events-none absolute bottom-5 sm:bottom-10 left-5 sm:left-10 w-48 sm:w-48 md:w-96 h-16 sm:h-10 md:h-20 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
+      <div className="pointer-events-none absolute top-5 sm:top-10 right-5 sm:right-10 w-48 sm:w-48 md:w-96 h-10 sm:h-6 md:h-10 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
+      <div className="pointer-events-none absolute bottom-5 sm:bottom-10 right-5 sm:right-10 w-64 sm:w-64 md:w-96 h-64 sm:h-64 md:h-96 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-5 animate-pulse"></div>
 
       {/* Header con efecto de gradiente sutil */}
       <div className="w-full px-4 sm:px-6 md:px-8 lg:px-16 pt-6 sm:pt-8 md:pt-12 bg-transparent pb-10 sm:pb-12 md:pb-16">
